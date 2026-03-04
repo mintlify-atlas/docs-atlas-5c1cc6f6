@@ -1,0 +1,201 @@
+---
+title: Render Functions
+description: Top-level rendering functions to convert plots to SVG, PNG, and PDF formats
+---
+
+Kuva provides three main rendering functions that collapse the entire plotting pipeline into a single call. These functions take a collection of plots and a layout, then return the rendered output in the desired format.
+
+## render_to_svg
+
+```rust
+pub fn render_to_svg(
+    plots: Vec<render::plots::Plot>,
+    layout: render::layout::Layout
+) -> String
+```
+
+Render a collection of plots to an SVG string in one call.
+
+This is the primary rendering function for Kuva. It collapses the four-step pipeline into a single expression:
+
+1. Build plot structs using their builder APIs
+2. Collect plots into a `Vec<Plot>`
+3. Build a `Layout` with `Layout::auto_from_plots` and customize it
+4. Call `render_to_svg` to get the output
+
+<ParamField path="plots" type="Vec<Plot>" required>
+  A vector of plot objects to render. Use `.into()` on any plot struct to convert it to the `Plot` enum.
+</ParamField>
+
+<ParamField path="layout" type="Layout" required>
+  The layout configuration defining the plot dimensions, axes, ranges, and styling. Use `Layout::auto_from_plots(&plots)` to generate a reasonable default, then customize as needed.
+</ParamField>
+
+<ResponseField name="return" type="String">
+  An SVG string containing the complete rendered visualization.
+</ResponseField>
+
+### Example
+
+```rust
+use kuva::prelude::*;
+
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0_f64, 2.0), (3.0, 4.0)])
+    .with_color("steelblue");
+
+let plots: Vec<Plot> = vec![scatter.into()];
+let svg = kuva::render_to_svg(plots, Layout::auto_from_plots(&[]));
+assert!(svg.contains("<svg"));
+```
+
+### Advanced Usage
+
+For fine-grained control (custom layout, twin axes, special-case plot types), use `render::render::render_multiple` and `backend::svg::SvgBackend` directly.
+
+---
+
+## render_to_png
+
+```rust
+pub fn render_to_png(
+    plots: Vec<render::plots::Plot>,
+    layout: render::layout::Layout,
+    scale: f32,
+) -> Result<Vec<u8>, String>
+```
+
+Render a collection of plots to a PNG byte vector in one call. Requires the `png` feature flag.
+
+<ParamField path="plots" type="Vec<Plot>" required>
+  A vector of plot objects to render.
+</ParamField>
+
+<ParamField path="layout" type="Layout" required>
+  The layout configuration defining the plot dimensions, axes, ranges, and styling.
+</ParamField>
+
+<ParamField path="scale" type="f32" required>
+  The pixel density multiplier. `1.0` matches the SVG logical size, `2.0` (the `PngBackend` default) gives retina/HiDPI quality. Higher values produce larger, higher-resolution images.
+</ParamField>
+
+<ResponseField name="return" type="Result<Vec<u8>, String>">
+  On success, returns a `Vec<u8>` containing the PNG image data. On failure, returns an error string if SVG parsing or rasterization fails.
+</ResponseField>
+
+### Example
+
+```rust
+use kuva::prelude::*;
+
+let line = LinePlot::new()
+    .with_data(vec![(0.0, 1.0), (1.0, 2.0), (2.0, 1.5)])
+    .with_color("red");
+
+let plots: Vec<Plot> = vec![line.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("My Plot")
+    .with_width(800.0)
+    .with_height(600.0);
+
+let png_bytes = kuva::render_to_png(plots, layout, 2.0)
+    .expect("Failed to render PNG");
+
+std::fs::write("output.png", png_bytes).unwrap();
+```
+
+### Feature Flag
+
+This function requires the `png` feature to be enabled in your `Cargo.toml`:
+
+```toml
+[dependencies]
+kuva = { version = "*", features = ["png"] }
+```
+
+### Advanced Usage
+
+For fine-grained control, use `render::render::render_multiple` and `backend::png::PngBackend` directly.
+
+---
+
+## render_to_pdf
+
+```rust
+pub fn render_to_pdf(
+    plots: Vec<render::plots::Plot>,
+    layout: render::layout::Layout,
+) -> Result<Vec<u8>, String>
+```
+
+Render a collection of plots to a PDF byte vector in one call. Requires the `pdf` feature flag.
+
+<ParamField path="plots" type="Vec<Plot>" required>
+  A vector of plot objects to render.
+</ParamField>
+
+<ParamField path="layout" type="Layout" required>
+  The layout configuration defining the plot dimensions, axes, ranges, and styling.
+</ParamField>
+
+<ResponseField name="return" type="Result<Vec<u8>, String>">
+  On success, returns a `Vec<u8>` containing the PDF document data. On failure, returns an error string if SVG parsing or PDF conversion fails.
+</ResponseField>
+
+### Example
+
+```rust
+use kuva::prelude::*;
+
+let bar = BarPlot::new()
+    .with_group(BarGroup::new("Group A")
+        .with_bar("Category 1", 10.0)
+        .with_bar("Category 2", 20.0))
+    .with_color("steelblue");
+
+let plots: Vec<Plot> = vec![bar.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Sales Report")
+    .with_y_label("Revenue");
+
+let pdf_bytes = kuva::render_to_pdf(plots, layout)
+    .expect("Failed to render PDF");
+
+std::fs::write("report.pdf", pdf_bytes).unwrap();
+```
+
+### Feature Flag
+
+This function requires the `pdf` feature to be enabled in your `Cargo.toml`:
+
+```toml
+[dependencies]
+kuva = { version = "*", features = ["pdf"] }
+```
+
+### Advanced Usage
+
+For fine-grained control, use `render::render::render_multiple` and `backend::pdf::PdfBackend` directly.
+
+---
+
+## Feature Flags Summary
+
+| Feature | Description |
+|---------|-------------|
+| `png`   | Enables `render_to_png` and `PngBackend` for rasterizing SVG scenes via `resvg`. |
+| `pdf`   | Enables `render_to_pdf` and `PdfBackend` for vector PDF output via `svg2pdf`. |
+| `full`  | Enables both `png` and `pdf` features. |
+
+## Pipeline Overview
+
+All three render functions follow this internal pipeline:
+
+```text
+plot definition  →  Layout  →  Scene (primitives)  →  backend output
+```
+
+1. **Plot Definition**: Build plot structs using their builder APIs (e.g., `ScatterPlot::new()`)
+2. **Layout**: Define dimensions, axes, and styling with `Layout`
+3. **Scene**: Internal representation using geometric primitives
+4. **Backend Output**: Final rendering to SVG, PNG, or PDF

@@ -1,0 +1,235 @@
+---
+title: UpSetPlot
+description: Scalable set intersection visualization with vertical bars and dot matrix
+---
+
+An UpSet plot is the scalable successor to Venn diagrams for showing set intersections when there are more than three or four sets. It has three visual components:
+
+- **Intersection size bars** (top): vertical bars showing how many elements belong to each intersection
+- **Dot matrix** (middle): a grid of circles. Filled dots indicate which sets participate in each intersection; a vertical line connects the filled dots
+- **Set size bars** (left, optional): horizontal bars showing the total size of each set
+
+## Constructor
+
+### new
+
+Create an UpSet plot with default settings.
+
+```rust
+use kuva::plot::UpSetPlot;
+
+let up = UpSetPlot::new();
+```
+
+**Returns:** `UpSetPlot`
+
+**Defaults:**
+- Sort: `ByFrequency` (largest count leftmost)
+- Count labels shown
+- Set-size bars shown
+- Dark gray bars and dots (`#333333`)
+- Light gray empty dots (`#dddddd`)
+
+## Data Input Methods
+
+### with_sets
+
+Build from raw sets: an iterable of `(name, elements)` pairs.
+
+```rust
+pub fn with_sets<S, T, I, J>(self, sets: I) -> Self
+where
+    S: Into<String>,
+    T: Eq + std::hash::Hash,
+    I: IntoIterator<Item = (S, J)>,
+    J: IntoIterator<Item = T>,
+```
+
+Intersection counts are computed automatically. Each element is assigned to the unique combination of sets it belongs to (bitmask semantics).
+
+<ParamField path="sets" type="impl IntoIterator<Item = (String, Vec<T>)>">
+  Iterator of `(set_name, elements)` pairs where elements implement `Eq + Hash`
+</ParamField>
+
+**Example:**
+```rust
+let up = UpSetPlot::new().with_sets(vec![
+    ("DESeq2",   vec!["BRCA1", "TP53", "EGFR", "MYC",  "CDK4"]),
+    ("edgeR",    vec!["TP53",  "EGFR", "RB1",  "PTEN", "CDK4"]),
+    ("limma",    vec!["EGFR",  "MYC",  "RB1",  "CDK2"]),
+]);
+```
+
+---
+
+### with_data
+
+Build from precomputed intersection data.
+
+```rust
+pub fn with_data<S: Into<String>>(
+    self,
+    set_names: impl IntoIterator<Item = S>,
+    set_sizes: impl IntoIterator<Item = usize>,
+    intersections: impl IntoIterator<Item = (u64, usize)>,
+) -> Self
+```
+
+Use this when intersection counts come from an external source.
+
+<ParamField path="set_names" type="impl IntoIterator<Item = String>">
+  Set names in order (bit 0, bit 1, bit 2, …)
+</ParamField>
+
+<ParamField path="set_sizes" type="impl IntoIterator<Item = usize>">
+  Total element count for each set (for set-size bars)
+</ParamField>
+
+<ParamField path="intersections" type="impl IntoIterator<Item = (u64, usize)>">
+  Iterator of `(mask, count)` pairs where `mask` is a bitmask indicating set membership
+</ParamField>
+
+**Bitmask encoding:** Bit `i` set means `set_names[i]` participates. For example, with three sets A, B, C:
+- `mask = 0b001` (1) → elements in A only
+- `mask = 0b011` (3) → elements in A ∩ B but not C
+- `mask = 0b111` (7) → elements in A ∩ B ∩ C
+
+**Example:**
+```rust
+// Three variant callers — bit 0 = GATK, bit 1 = FreeBayes, bit 2 = Strelka
+let up = UpSetPlot::new().with_data(
+    ["GATK", "FreeBayes", "Strelka"],
+    [280usize, 263, 249],
+    vec![
+        (0b001, 45),   // GATK only
+        (0b010, 35),   // FreeBayes only
+        (0b100, 28),   // Strelka only
+        (0b011, 62),   // GATK ∩ FreeBayes
+        (0b101, 55),   // GATK ∩ Strelka
+        (0b110, 48),   // FreeBayes ∩ Strelka
+        (0b111, 118),  // all three
+    ],
+);
+```
+
+## Sort Order
+
+### with_sort
+
+Set the sort order for intersections.
+
+```rust
+pub fn with_sort(self, sort: UpSetSort) -> Self
+```
+
+<ParamField path="sort" type="UpSetSort">
+  Sort order (default: `UpSetSort::ByFrequency`)
+</ParamField>
+
+**UpSetSort variants:**
+- `UpSetSort::ByFrequency` — largest count leftmost (default)
+- `UpSetSort::ByDegree` — most complex (most sets) leftmost, ties broken by count
+- `UpSetSort::Natural` — preserve the order supplied to `with_data` or the deterministic mask-sorted order from `with_sets`
+
+**Example:**
+```rust
+use kuva::plot::UpSetSort;
+
+let up = UpSetPlot::new()
+    .with_sets(data)
+    .with_sort(UpSetSort::ByDegree);
+```
+
+## Filtering
+
+### with_max_visible
+
+Show only the top `max` intersections after sorting.
+
+```rust
+pub fn with_max_visible(self, max: usize) -> Self
+```
+
+<ParamField path="max" type="usize">
+  Maximum number of intersections to display
+</ParamField>
+
+Useful when many intersections exist but only the most prominent ones need to be displayed. The limit is applied after sorting.
+
+**Example:**
+```rust
+let up = UpSetPlot::new()
+    .with_sets(data)
+    .with_max_visible(10);  // show only the 10 largest intersections
+```
+
+## Display Configuration
+
+### without_set_sizes
+
+Hide the horizontal set-size bars on the left panel.
+
+```rust
+pub fn without_set_sizes(self) -> Self
+```
+
+By default a bar for each set shows its total element count. Call this to produce a more compact layout.
+
+---
+
+### with_bar_color
+
+Set the color for intersection bars and set-size bars.
+
+```rust
+pub fn with_bar_color<S: Into<String>>(self, color: S) -> Self
+```
+
+<ParamField path="color" type="String">
+  CSS color string (default: `"#333333"`)
+</ParamField>
+
+---
+
+### with_dot_color
+
+Set the fill color for dots in a participating set.
+
+```rust
+pub fn with_dot_color<S: Into<String>>(self, color: S) -> Self
+```
+
+<ParamField path="color" type="String">
+  CSS color string for filled dots (default: `"#333333"`)
+</ParamField>
+
+Non-participating dots retain their color set by `dot_empty_color` (default light gray).
+
+## Rendering
+
+The UpSet plot renders entirely in pixel space. It does not use the standard x/y axis system — `Layout::auto_from_plots` skips axis computation for UpSet plots. A title set on the `Layout` is still rendered.
+
+## Full Example
+
+```rust
+use kuva::plot::UpSetPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let up = UpSetPlot::new()
+    .with_sets(vec![
+        ("Set A", vec!["apple", "banana", "cherry", "date"]),
+        ("Set B", vec!["banana", "cherry", "elderberry", "fig"]),
+        ("Set C", vec!["cherry", "fig", "grape"]),
+    ])
+    .with_max_visible(10);
+
+let plots = vec![Plot::UpSet(up)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Set Intersections");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("upset.svg", svg).unwrap();
+```

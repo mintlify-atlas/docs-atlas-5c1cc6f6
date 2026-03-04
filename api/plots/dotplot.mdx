@@ -1,0 +1,284 @@
+---
+title: DotPlot
+description: Bubble matrix encoding two variables via circle size and color
+---
+
+A dot plot places circles at the intersections of two categorical axes. Each circle encodes two independent continuous variables simultaneously: **size** (radius) and **color**. This makes it well suited for compact display of multi-variable summaries across a grid — the canonical bioinformatics use case is gene expression across cell types, where size shows the fraction of cells expressing the gene and color shows the mean expression level.
+
+## Constructor
+
+### new
+
+Create a dot plot with default settings.
+
+```rust
+use kuva::plot::DotPlot;
+
+let dot = DotPlot::new();
+```
+
+**Returns:** `DotPlot`
+
+**Defaults:**
+- Color map: `ColorMap::Viridis`
+- Max radius: `12.0` pixels
+- Min radius: `1.0` pixel
+- Auto size and color ranges
+- No legends
+
+## Data Input Methods
+
+Two modes are supported:
+
+### with_data
+
+Add data as sparse `(x_cat, y_cat, size, color)` tuples.
+
+```rust
+pub fn with_data<I, Sx, Sy, F, G>(self, iter: I) -> Self
+where
+    I: IntoIterator<Item = (Sx, Sy, F, G)>,
+    Sx: Into<String>,
+    Sy: Into<String>,
+    F: Into<f64>,
+    G: Into<f64>,
+```
+
+Category order follows first-seen insertion order. Grid positions with no tuple are left empty — no circle is drawn.
+
+<ParamField path="iter" type="impl IntoIterator<Item = (String, String, f64, f64)>">
+  Iterator of `(x_category, y_category, size_value, color_value)` tuples
+</ParamField>
+
+**Example:**
+```rust
+let dot = DotPlot::new().with_data(vec![
+    ("CD4 T", "CD3E", 88.0_f64, 3.8_f64),
+    ("CD8 T", "CD3E", 91.0,     4.0    ),
+    ("CD4 T", "CD4",  85.0,     3.5    ),
+    ("CD8 T", "CD4",   8.0,     0.3    ),
+]);
+```
+
+---
+
+### with_matrix
+
+Add data as explicit category lists and dense `sizes` / `colors` matrices.
+
+```rust
+pub fn with_matrix<Sx, Sy, F, G>(
+    self,
+    x_cats: impl IntoIterator<Item = Sx>,
+    y_cats: impl IntoIterator<Item = Sy>,
+    sizes: Vec<Vec<F>>,
+    colors: Vec<Vec<G>>,
+) -> Self
+where
+    Sx: Into<String>,
+    Sy: Into<String>,
+    F: Into<f64>,
+    G: Into<f64>,
+```
+
+`sizes[row_i][col_j]` corresponds to `y_cats[row_i]` and `x_cats[col_j]`. Every grid cell is filled.
+
+<ParamField path="x_cats" type="impl IntoIterator<Item = String>">
+  X-axis category labels (column order)
+</ParamField>
+
+<ParamField path="y_cats" type="impl IntoIterator<Item = String>">
+  Y-axis category labels (row order, rendered top → bottom)
+</ParamField>
+
+<ParamField path="sizes" type="Vec<Vec<f64>>">
+  Size matrix `[rows][cols]` where each value maps to circle radius
+</ParamField>
+
+<ParamField path="colors" type="Vec<Vec<f64>>">
+  Color matrix `[rows][cols]` where each value maps to circle color
+</ParamField>
+
+**Example:**
+```rust
+let dot = DotPlot::new().with_matrix(
+    vec!["TypeA", "TypeB"],          // x categories
+    vec!["Gene1", "Gene2"],          // y categories
+    vec![vec![80.0, 25.0],           // sizes[row_i][col_j]
+         vec![15.0, 90.0]],
+    vec![vec![3.5,  1.2],            // colors[row_i][col_j]
+         vec![0.8,  4.1]],
+);
+```
+
+## Color Configuration
+
+### with_color_map
+
+Set the color map for the color encoding.
+
+```rust
+pub fn with_color_map(self, map: ColorMap) -> Self
+```
+
+<ParamField path="map" type="ColorMap">
+  Color map (default: `ColorMap::Viridis`)
+</ParamField>
+
+See `ColorMap` for available options: `Viridis`, `Inferno`, `Grayscale`, and `Custom`.
+
+## Radius Configuration
+
+### with_max_radius
+
+Set the maximum circle radius in pixels.
+
+```rust
+pub fn with_max_radius(self, r: f64) -> Self
+```
+
+<ParamField path="r" type="f64">
+  Maximum radius in pixels (default: `12.0`)
+</ParamField>
+
+The largest `size` value in the data (or `size_range.1`) maps to this radius.
+
+---
+
+### with_min_radius
+
+Set the minimum circle radius in pixels.
+
+```rust
+pub fn with_min_radius(self, r: f64) -> Self
+```
+
+<ParamField path="r" type="f64">
+  Minimum radius in pixels (default: `1.0`)
+</ParamField>
+
+The smallest `size` value in the data (or `size_range.0`) maps to this radius.
+
+## Range Configuration
+
+### with_size_range
+
+Clamp the size encoding to an explicit `[min, max]` range before normalising.
+
+```rust
+pub fn with_size_range(self, min: f64, max: f64) -> Self
+```
+
+<ParamField path="min" type="f64">
+  Minimum value for size scale
+</ParamField>
+
+<ParamField path="max" type="f64">
+  Maximum value for size scale
+</ParamField>
+
+Values below `min` map to `min_radius`; values above `max` map to `max_radius`. Useful when comparing across charts that must use a consistent scale.
+
+**Example:**
+```rust
+let dot = DotPlot::new()
+    .with_data(vec![("A", "G", 120.0_f64, 1.0_f64)])  // 120 will be clamped
+    .with_size_range(0.0, 100.0);
+```
+
+---
+
+### with_color_range
+
+Clamp the color encoding to an explicit `[min, max]` range before normalising.
+
+```rust
+pub fn with_color_range(self, min: f64, max: f64) -> Self
+```
+
+<ParamField path="min" type="f64">
+  Minimum value for color scale
+</ParamField>
+
+<ParamField path="max" type="f64">
+  Maximum value for color scale
+</ParamField>
+
+Values outside the range are clamped before the color map is applied.
+
+## Legends
+
+### with_size_legend
+
+Enable a size legend in the right margin.
+
+```rust
+pub fn with_size_legend<S: Into<String>>(self, label: S) -> Self
+```
+
+<ParamField path="label" type="String">
+  Variable name for the size legend
+</ParamField>
+
+The legend shows representative circle sizes with their corresponding values. When combined with `with_colorbar`, the two are stacked in a single right-margin column.
+
+**Example:**
+```rust
+let dot = DotPlot::new()
+    .with_data(data)
+    .with_size_legend("% Expressing");
+```
+
+---
+
+### with_colorbar
+
+Enable a colorbar in the right margin.
+
+```rust
+pub fn with_colorbar<S: Into<String>>(self, label: S) -> Self
+```
+
+<ParamField path="label" type="String">
+  Label for the colorbar
+</ParamField>
+
+The colorbar maps the data range (or `with_color_range` bounds) to the active color map. When combined with `with_size_legend`, the two are stacked in a single right-margin column.
+
+**Example:**
+```rust
+let dot = DotPlot::new()
+    .with_data(data)
+    .with_colorbar("Mean expression");
+```
+
+## Full Example
+
+```rust
+use kuva::plot::DotPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data = vec![
+    ("CD4 T", "CD3E", 88.0_f64, 3.8_f64),
+    ("CD8 T", "CD3E", 91.0,     4.0    ),
+    ("CD4 T", "CD4",  85.0,     3.5    ),
+    ("CD8 T", "CD4",   8.0,     0.3    ),
+];
+
+let dot = DotPlot::new()
+    .with_data(data)
+    .with_size_legend("% Expressing")
+    .with_colorbar("Mean expression");
+
+let plots = vec![Plot::DotPlot(dot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Gene Expression")
+    .with_x_label("Cell type")
+    .with_y_label("Gene");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("dotplot.svg", svg).unwrap();
+```

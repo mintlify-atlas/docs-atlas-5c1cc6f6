@@ -1,0 +1,293 @@
+---
+title: SyntenyPlot
+description: Genomic synteny visualization showing collinear blocks and structural variations between sequences
+---
+
+`SyntenyPlot` visualizes collinear blocks between genomic sequences as horizontal bars connected by ribbon polygons. Each sequence is represented as a labeled horizontal bar, with ribbons connecting homologous regions. Inverted blocks (structural inversions) are drawn as crossed ribbons.
+
+## When to Use
+
+Synteny plots are ideal for:
+
+- **Comparative genomics** — chromosome rearrangements, conservation between species
+- **Structural variation** — inversions, translocations, duplications
+- **Genome assembly validation** — alignment between assemblies or scaffolds
+- **Evolutionary analysis** — synteny conservation across lineages
+- **Ortholog mapping** — visualizing conserved gene order between genomes
+
+## Basic Example
+
+```rust
+use kuva::plot::synteny::SyntenyPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = SyntenyPlot::new()
+    .with_sequences([
+        ("Human chr1", 248_956_422.0),
+        ("Mouse chr1", 195_471_971.0),
+    ])
+    .with_block(0,  0.0,       50_000_000.0,  1,  0.0,       45_000_000.0)
+    .with_block(0,  60_000_000.0, 120_000_000.0, 1, 55_000_000.0, 100_000_000.0)
+    .with_block(0, 130_000_000.0, 200_000_000.0, 1, 110_000_000.0, 170_000_000.0);
+
+let plots = vec![Plot::Synteny(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Human chr1 vs Mouse chr1");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("synteny.svg", svg).unwrap();
+```
+
+By default, each sequence bar fills the full width (per-sequence scale). Use `.with_shared_scale()` for a shared coordinate ruler.
+
+## Forward and Inverted Blocks
+
+Inverted blocks (structural inversions) are drawn as crossed (bowtie) ribbons:
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences([("Seq A", 1_000_000.0), ("Seq B", 1_000_000.0)])
+    .with_block(    0,       0.0, 200_000.0, 1,       0.0, 200_000.0)  // Forward
+    .with_inv_block(0, 250_000.0, 500_000.0, 1, 250_000.0, 500_000.0)  // Inverted (crossed)
+    .with_block(    0, 600_000.0, 900_000.0, 1, 600_000.0, 900_000.0); // Forward
+```
+
+- **Forward blocks** (`.with_block()`): Ribbons connect directly (parallel)
+- **Inverted blocks** (`.with_inv_block()`): Ribbons cross (bowtie shape)
+
+## Three-Way Synteny
+
+Visualize synteny across multiple sequences:
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences([
+        ("Genome A", 500_000.0),
+        ("Genome B", 480_000.0),
+        ("Genome C", 450_000.0),
+    ])
+    // Blocks between Genome A (seq 0) and Genome B (seq 1)
+    .with_block(    0,       0.0, 100_000.0, 1,       0.0,  95_000.0)
+    .with_block(    0, 150_000.0, 300_000.0, 1, 140_000.0, 280_000.0)
+    // Blocks between Genome B (seq 1) and Genome C (seq 2)
+    .with_block(    1,       0.0, 100_000.0, 2,   5_000.0, 105_000.0)
+    .with_inv_block(1, 200_000.0, 350_000.0, 2, 190_000.0, 340_000.0);
+```
+
+## Custom Colors
+
+Set sequence bar colors and per-block colors:
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences([("Seq 1", 500_000.0), ("Seq 2", 500_000.0)])
+    .with_sequence_colors(["#4393c3", "#d6604d"])  // Bar colors
+    .with_colored_block(    0,       0.0, 150_000.0, 1,       0.0, 150_000.0, "#2ca02c")  // Green block
+    .with_colored_block(    0, 200_000.0, 350_000.0, 1, 200_000.0, 340_000.0, "#9467bd")  // Purple block
+    .with_colored_inv_block(0, 380_000.0, 480_000.0, 1, 370_000.0, 470_000.0, "#ff7f0e")  // Orange inverted
+    .with_legend("Blocks");
+```
+
+## Shared Scale
+
+By default, each sequence bar fills the full width (per-sequence scale). Enable shared scale for a common coordinate ruler:
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences([
+        ("Chr 1", 100_000_000.0),
+        ("Chr 2",  80_000_000.0),  // Shorter — will draw narrower bar
+    ])
+    .with_shared_scale();  // All sequences use the same coordinate scale
+```
+
+With shared scale, shorter sequences draw narrower bars, making length differences visible.
+
+## Key Methods
+
+### `SyntenyPlot::new()`
+
+Create a synteny plot with default settings:
+- Bar height: 18.0 pixels
+- Block opacity: 0.65
+- Shared scale: false (per-sequence scale)
+
+### `.with_sequences<S, L>(seqs: impl IntoIterator<Item = (S, L)>)`
+
+Add sequences from `(label, length)` pairs. Sequences are indexed in the order added (0-indexed).
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences([
+        ("Human chr1", 248_956_422.0),  // Sequence 0
+        ("Mouse chr1", 195_471_971.0),  // Sequence 1
+    ]);
+```
+
+### `.with_sequence_colors<C: Into<String>>(colors: impl IntoIterator<Item = C>)`
+
+Override sequence bar colors. Provide one color per sequence in the same order.
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_sequence_colors(["#e41a1c", "#377eb8", "#4daf4a"]);
+```
+
+### `.with_block(seq1: usize, start1: f64, end1: f64, seq2: usize, start2: f64, end2: f64)`
+
+Add a forward (parallel) collinear block between two sequences.
+
+- `seq1`, `seq2`: Sequence indices (0-indexed)
+- `start1`, `end1`: Coordinates on sequence 1
+- `start2`, `end2`: Coordinates on sequence 2
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_block(0, 1000.0, 5000.0, 1, 2000.0, 6000.0);  // Forward block
+```
+
+### `.with_inv_block(seq1: usize, start1: f64, end1: f64, seq2: usize, start2: f64, end2: f64)`
+
+Add an inverted (crossed) block, indicating a structural inversion.
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_inv_block(0, 10000.0, 20000.0, 1, 15000.0, 25000.0);  // Inversion
+```
+
+### `.with_colored_block(seq1, start1, end1, seq2, start2, end2, color)`
+
+Add a forward block with an explicit color.
+
+```rust
+let plot = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_colored_block(0, 0.0, 1000.0, 1, 0.0, 1000.0, "#ff5733");
+```
+
+### `.with_colored_inv_block(seq1, start1, end1, seq2, start2, end2, color)`
+
+Add an inverted block with an explicit color.
+
+### `.with_blocks(blocks: impl IntoIterator<Item = SyntenyBlock>)`
+
+Batch-add pre-built `SyntenyBlock` structures:
+
+```rust
+let blocks = vec![
+    SyntenyBlock {
+        seq1: 0, start1: 0.0, end1: 1000.0,
+        seq2: 1, start2: 0.0, end2: 1000.0,
+        strand: Strand::Forward,
+        color: None,
+    },
+];
+let plot = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_blocks(blocks);
+```
+
+### `.with_bar_height(h: f64)`
+
+Set sequence bar height in pixels (default `18.0`).
+
+### `.with_opacity(opacity: f64)`
+
+Set ribbon fill opacity (default `0.65`). Range: `0.0` (transparent) to `1.0` (opaque).
+
+### `.with_shared_scale()`
+
+Enable shared coordinate ruler. By default, each sequence bar fills the full width (per-sequence scale). With shared scale, shorter sequences draw narrower bars.
+
+### `.with_legend<S: Into<String>>(label: S)`
+
+Add a legend (useful when using colored blocks or sequence colors).
+
+## Data Structures
+
+### SyntenyPlot
+
+```rust
+pub struct SyntenyPlot {
+    pub sequences: Vec<SyntenySequence>,
+    pub blocks: Vec<SyntenyBlock>,
+    pub bar_height: f64,        // Pixel height of each sequence bar
+    pub block_opacity: f64,     // Ribbon fill-opacity
+    pub shared_scale: bool,     // false = per-sequence scale; true = shared ruler
+    pub legend_label: Option<String>,
+}
+```
+
+### SyntenySequence
+
+```rust
+pub struct SyntenySequence {
+    pub label: String,
+    pub length: f64,           // Sequence length in base pairs
+    pub color: Option<String>, // Bar fill color
+}
+```
+
+### SyntenyBlock
+
+```rust
+pub struct SyntenyBlock {
+    pub seq1: usize,           // Sequence index (0-indexed)
+    pub start1: f64,
+    pub end1: f64,
+    pub seq2: usize,
+    pub start2: f64,
+    pub end2: f64,
+    pub strand: Strand,        // Forward or Reverse
+    pub color: Option<String>, // Ribbon fill color
+}
+```
+
+### Strand
+
+```rust
+pub enum Strand {
+    Forward,  // Parallel ribbon
+    Reverse,  // Crossed (bowtie) ribbon
+}
+```
+
+## Tips
+
+- **Block direction**: Use inverted blocks (`.with_inv_block()`) to highlight structural inversions
+- **Coordinate system**: Start and end coordinates are in base pairs; use actual genomic coordinates
+- **Scale mode**: Use per-sequence scale (default) when comparing sequences of similar length; use shared scale when length differences are important
+- **Color strategy**: Use per-block colors to highlight functional regions (genes, repeats, conservation levels)
+- **Opacity**: Reduce opacity if blocks overlap heavily
+- **Multiple sequences**: Connect adjacent pairs (seq 0-1, 1-2, 2-3) for multi-way comparisons
+- **Gaps**: Absence of ribbons indicates non-syntenic regions or assembly gaps
+- **Resolution**: For whole-genome comparisons, use blocks > 10kb to avoid visual clutter
+
+## Parsing Synteny Data
+
+Common formats for synteny data:
+
+### MCScanX format
+```text
+## Alignment 1
+0 - 0   seq1:gene1   seq2:gene1   0.95
+0 - 1   seq1:gene2   seq2:gene2   0.88
+```
+
+### LASTZ/Chain format
+Extract block coordinates from alignment chains.
+
+### MUMmer/nucmer
+Parse `.delta` or `.coords` files to extract collinear blocks.
+
+## Related Plots
+
+- [Manhattan plot](/plot-types/genomics/manhattan) — For genome-wide association signals
+- [Genome browser](/plot-types/genomics/browser) — For detailed annotation tracks
+- [Dot plot](/plot-types/comparison/dotplot) — For all-vs-all sequence similarity

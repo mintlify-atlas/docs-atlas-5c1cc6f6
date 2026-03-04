@@ -1,0 +1,205 @@
+---
+title: BarPlot
+description: API reference for BarPlot - bar charts with simple, grouped, and stacked modes
+---
+
+## BarPlot
+
+Builder for creating bar charts. Supports three modes depending on how data is added:
+
+- **Simple** — one bar per category via `with_bar()` or `with_bars()`
+- **Grouped** — multiple side-by-side bars per category via `with_group()`
+- **Stacked** — bars stacked vertically via `with_group()` + `with_stacked()`
+
+### Constructor
+
+<ParamField path="BarPlot::new()" type="Self">
+  Create a bar plot with default settings.
+  
+  **Defaults:**
+  - Bar width: `0.8` (as a fraction of available slot)
+  - No stacking
+  - No legend
+</ParamField>
+
+### Simple Mode Methods
+
+<ParamField path="with_bar" type="Self">
+  ```rust
+  pub fn with_bar<T: Into<String>>(self, label: T, value: f64) -> Self
+  ```
+  
+  Add a single bar (simple mode). The bar is colored with the library default (`"steelblue"`). Use `with_color()` afterwards to change all bars at once.
+  
+  **Example:**
+  ```rust
+  let plot = BarPlot::new()
+      .with_bar("A", 3.2)
+      .with_bar("B", 4.7)
+      .with_bar("C", 2.8)
+      .with_color("steelblue");
+  ```
+</ParamField>
+
+<ParamField path="with_bars" type="Self">
+  ```rust
+  pub fn with_bars<T: Into<String>>(self, data: Vec<(T, f64)>) -> Self
+  ```
+  
+  Add multiple bars at once (simple mode). Equivalent to calling `with_bar()` for each item. Chain `with_color()` to set a uniform color.
+  
+  **Example:**
+  ```rust
+  let plot = BarPlot::new()
+      .with_bars(vec![("A", 3.2), ("B", 4.7), ("C", 2.8)])
+      .with_color("steelblue");
+  ```
+</ParamField>
+
+### Grouped/Stacked Mode Methods
+
+<ParamField path="with_group" type="Self">
+  ```rust
+  pub fn with_group<T: Into<String>>(self, label: T, values: Vec<(f64, &str)>) -> Self
+  ```
+  
+  Add a group of bars for one category (grouped/stacked mode). Each item in `values` is a `(value, color)` pair — one per series. Call this once per x-axis category. Pair with `with_legend()` to label the series.
+  
+  **Example:**
+  ```rust
+  let plot = BarPlot::new()
+      .with_group("Jan", vec![(10.0, "steelblue"), (7.0, "crimson")])
+      .with_group("Feb", vec![(13.0, "steelblue"), (9.0, "crimson")])
+      .with_legend(vec!["Series A", "Series B"]);
+  ```
+</ParamField>
+
+### Styling Methods
+
+<ParamField path="with_color" type="Self">
+  ```rust
+  pub fn with_color<S: Into<String>>(self, color: S) -> Self
+  ```
+  
+  Set a uniform color for all bars added so far. Overwrites the color on every existing bar. In simple mode, call this after `with_bar()` / `with_bars()`. Not needed in grouped/stacked mode, where colors are set per-value in `with_group()`.
+</ParamField>
+
+<ParamField path="with_width" type="Self">
+  ```rust
+  pub fn with_width(self, width: f64) -> Self
+  ```
+  
+  Set the bar width as a fraction of the available category slot (default `0.8`). Values between `0.0` and `1.0`. A width of `1.0` means bars touch.
+</ParamField>
+
+<ParamField path="with_stacked" type="Self">
+  ```rust
+  pub fn with_stacked(self) -> Self
+  ```
+  
+  Enable stacked mode. Instead of placing bars side-by-side, segments are stacked vertically within each category. Requires groups to be defined with `with_group()`.
+</ParamField>
+
+### Legend Methods
+
+<ParamField path="with_legend" type="Self">
+  ```rust
+  pub fn with_legend(self, legend: Vec<&str>) -> Self
+  ```
+  
+  Set legend labels for each series (one per bar within a group). Must be called after the groups are defined so the label count matches the number of bars per group.
+</ParamField>
+
+## Types
+
+### BarGroup
+
+A single category group containing one or more bars.
+
+**Fields:**
+- `label: String` - Category label
+- `bars: Vec<BarValue>` - Bar segments in this group
+
+### BarValue
+
+A single bar segment with a value and a fill color.
+
+**Fields:**
+- `value: f64` - Bar height/value
+- `color: String` - Fill color (CSS color string)
+
+## Complete Example
+
+### Simple Bar Chart
+
+```rust
+use kuva::plot::BarPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = BarPlot::new()
+    .with_bars(vec![("Apples", 42.0), ("Bananas", 58.0), ("Cherries", 31.0)])
+    .with_color("steelblue");
+
+let plots = vec![Plot::Bar(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Fruit Counts")
+    .with_x_label("Fruit")
+    .with_y_label("Count");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("bar.svg", svg).unwrap();
+```
+
+### Grouped Bar Chart
+
+```rust
+use kuva::plot::BarPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = BarPlot::new()
+    .with_group("Q1", vec![(50.0, "steelblue"), (30.0, "crimson")])
+    .with_group("Q2", vec![(65.0, "steelblue"), (42.0, "crimson")])
+    .with_group("Q3", vec![(58.0, "steelblue"), (48.0, "crimson")])
+    .with_legend(vec!["Product A", "Product B"]);
+
+let plots = vec![Plot::Bar(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Quarterly Sales")
+    .with_x_label("Quarter")
+    .with_y_label("Revenue");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("grouped_bar.svg", svg).unwrap();
+```
+
+### Stacked Bar Chart
+
+```rust
+use kuva::plot::BarPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = BarPlot::new()
+    .with_group("Q1", vec![(50.0, "steelblue"), (30.0, "crimson")])
+    .with_group("Q2", vec![(65.0, "steelblue"), (42.0, "crimson")])
+    .with_group("Q3", vec![(58.0, "steelblue"), (48.0, "crimson")])
+    .with_stacked()
+    .with_legend(vec!["Product A", "Product B"]);
+
+let plots = vec![Plot::Bar(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Cumulative Sales")
+    .with_x_label("Quarter")
+    .with_y_label("Total Revenue");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("stacked_bar.svg", svg).unwrap();
+```

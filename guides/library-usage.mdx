@@ -1,0 +1,284 @@
+---
+title: Library Usage
+description: Using Kuva as a library, common patterns, and the prelude module
+---
+
+Kuva is designed as a Rust library for creating scientific plots programmatically. This guide covers the essential patterns for using Kuva in your Rust projects.
+
+## Installation
+
+Add Kuva to your `Cargo.toml`:
+
+```toml
+[dependencies]
+kuva = "0.1"
+
+# Optional: Enable additional backends
+kuva = { version = "0.1", features = ["png", "pdf"] }
+```
+
+### Feature Flags
+
+| Feature | Description |
+|---------|-------------|
+| `png` | Enables PNG output via `resvg` (rasterized from SVG) |
+| `pdf` | Enables PDF output via `svg2pdf` |
+| `cli` | Enables the `kuva` CLI binary |
+| `full` | Enables both `png` and `pdf` |
+
+## The Prelude Module
+
+The prelude module provides convenient re-exports of the most commonly used types. Import it at the top of your file:
+
+```rust
+use kuva::prelude::*;
+```
+
+This single import gives you access to:
+
+- **Plot types**: `ScatterPlot`, `LinePlot`, `BarPlot`, `Histogram`, `BoxPlot`, `ViolinPlot`, `PiePlot`, `Heatmap`, etc.
+- **Layout & rendering**: `Layout`, `Plot`, `render_to_svg`, `render_to_png`, `render_to_pdf`
+- **Figure API**: `Figure` for multi-plot layouts
+- **Styling**: `Theme`, `Palette`, `MarkerShape`, `LineStyle`
+- **Annotations**: `TextAnnotation`, `ReferenceLine`, `ShadedRegion`
+- **Backends**: `SvgBackend`, `PngBackend`, `PdfBackend`, `TerminalBackend`
+
+See [src/prelude.rs:1](https://github.com/Psy-Fer/kuva) for the complete list.
+
+## Basic Rendering Pipeline
+
+Kuva follows a four-step pipeline:
+
+```text
+plot definition → Layout → Scene (primitives) → backend output
+```
+
+### Step-by-Step Example
+
+<Steps>
+  <Step title="Create a plot using its builder API">
+    ```rust
+    use kuva::prelude::*;
+
+    let scatter = ScatterPlot::new()
+        .with_data(vec![(1.0_f64, 2.0), (3.0, 4.0), (5.0, 6.0)])
+        .with_color("steelblue")
+        .with_size(5.0);
+    ```
+  </Step>
+
+  <Step title="Convert plots to the Plot enum">
+    ```rust
+    let plots: Vec<Plot> = vec![scatter.into()];
+    ```
+
+    Each plot type (ScatterPlot, LinePlot, etc.) implements `Into<Plot>`.
+  </Step>
+
+  <Step title="Create a Layout with customization">
+    ```rust
+    let layout = Layout::auto_from_plots(&plots)
+        .with_title("My Scatter Plot")
+        .with_x_label("X Axis")
+        .with_y_label("Y Axis")
+        .with_width(800.0)
+        .with_height(500.0);
+    ```
+
+    `Layout::auto_from_plots()` automatically determines axis ranges from your data.
+  </Step>
+
+  <Step title="Render to your desired format">
+    ```rust
+    // SVG output (built-in, no feature required)
+    let svg = kuva::render_to_svg(plots.clone(), layout.clone());
+    std::fs::write("plot.svg", svg)?;
+
+    // PNG output (requires 'png' feature)
+    #[cfg(feature = "png")]
+    {
+        let png = kuva::render_to_png(plots.clone(), layout.clone(), 2.0)?;
+        std::fs::write("plot.png", png)?;
+    }
+
+    // PDF output (requires 'pdf' feature)
+    #[cfg(feature = "pdf")]
+    {
+        let pdf = kuva::render_to_pdf(plots, layout)?;
+        std::fs::write("plot.pdf", pdf)?;
+    }
+    ```
+  </Step>
+</Steps>
+
+## One-Shot Rendering
+
+For quick plots, use the convenience functions that collapse all steps into one call:
+
+```rust
+use kuva::prelude::*;
+
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (3.0, 4.0)])
+    .with_color("steelblue");
+
+let plots: Vec<Plot> = vec![scatter.into()];
+let svg = kuva::render_to_svg(plots, Layout::auto_from_plots(&[]));
+assert!(svg.contains("<svg"));
+```
+
+## Common Patterns
+
+### Multiple Series
+
+Combine multiple plots by collecting them into the plots vector:
+
+```rust
+use kuva::prelude::*;
+
+let series1 = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (2.0, 4.0), (3.0, 6.0)])
+    .with_color("steelblue")
+    .with_legend("Control");
+
+let series2 = ScatterPlot::new()
+    .with_data(vec![(1.0, 3.0), (2.0, 5.5), (3.0, 8.0)])
+    .with_color("crimson")
+    .with_legend("Treatment");
+
+let plots: Vec<Plot> = vec![series1.into(), series2.into()];
+let svg = kuva::render_to_svg(plots, Layout::auto_from_plots(&[]));
+```
+
+### Iterating from Data
+
+Generate plots programmatically from collections:
+
+```rust
+use kuva::prelude::*;
+
+let groups = vec![
+    ("GroupA", vec![(1.0, 2.0), (2.0, 3.0)], "steelblue"),
+    ("GroupB", vec![(1.0, 3.5), (2.0, 4.5)], "crimson"),
+    ("GroupC", vec![(1.0, 1.5), (2.0, 2.0)], "seagreen"),
+];
+
+let plots: Vec<Plot> = groups
+    .into_iter()
+    .map(|(name, data, color)| {
+        ScatterPlot::new()
+            .with_data(data)
+            .with_color(color)
+            .with_legend(name)
+            .into()
+    })
+    .collect();
+
+let svg = kuva::render_to_svg(plots, Layout::auto_from_plots(&[]));
+```
+
+### Combining Plot Types
+
+Mix different plot types in the same figure:
+
+```rust
+use kuva::prelude::*;
+
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (2.0, 4.0), (3.0, 3.5)])
+    .with_color("steelblue")
+    .with_size(5.0);
+
+let line = LinePlot::new()
+    .with_data(vec![(0.5, 1.0), (3.5, 5.0)])
+    .with_color("crimson")
+    .with_stroke_width(2.0)
+    .with_dashed();
+
+let plots: Vec<Plot> = vec![scatter.into(), line.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Combined Plot Types");
+
+let svg = kuva::render_to_svg(plots, layout);
+```
+
+## Advanced Rendering
+
+For fine-grained control, use the rendering functions directly:
+
+```rust
+use kuva::prelude::*;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+
+let plots: Vec<Plot> = vec![/* your plots */];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Advanced Plot");
+
+// Render to Scene (intermediate representation)
+let scene = render_multiple(plots, layout);
+
+// Use any backend
+let svg = SvgBackend.render_scene(&scene);
+```
+
+### Special Rendering Functions
+
+Some plot types have dedicated rendering functions:
+
+```rust
+use kuva::prelude::*;
+
+// Twin Y-axes (two Y scales on left/right)
+let scene = render_twin_y(left_plots, right_plots, layout);
+
+// Sankey diagram
+let scene = render_sankey(sankey_plot, layout);
+
+// Phylogenetic tree
+let scene = render_phylo_tree(phylo_tree, layout);
+
+// Synteny plot
+let scene = render_synteny(synteny_plot, layout);
+```
+
+See [src/lib.rs:54](https://github.com/Psy-Fer/kuva) for details.
+
+## Error Handling
+
+PNG and PDF rendering return `Result<Vec<u8>, String>`:
+
+```rust
+use kuva::prelude::*;
+
+let plots: Vec<Plot> = vec![/* plots */];
+let layout = Layout::auto_from_plots(&plots);
+
+match kuva::render_to_png(plots, layout, 2.0) {
+    Ok(png_bytes) => std::fs::write("plot.png", png_bytes)?,
+    Err(e) => eprintln!("PNG rendering failed: {}", e),
+}
+```
+
+## Terminal Output
+
+Render plots directly to the terminal using Unicode characters:
+
+```rust
+use kuva::prelude::*;
+use kuva::render::render::render_multiple;
+
+let plots: Vec<Plot> = vec![/* plots */];
+let layout = Layout::auto_from_plots(&plots);
+let scene = render_multiple(plots, layout);
+
+// 80 columns × 24 rows
+let output = TerminalBackend::new(80, 24).render_scene(&scene);
+print!("{}", output);
+```
+
+## Next Steps
+
+- [CLI Usage](/guides/cli-usage) - Using the command-line interface
+- [Styling & Customization](/guides/styling-customization) - Themes, colors, and visual styles
+- [Multi-Plot Figures](/guides/multi-plot-figures) - Creating complex layouts with the Figure API

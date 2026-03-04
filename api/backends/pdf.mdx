@@ -1,0 +1,101 @@
+---
+title: PdfBackend
+description: PDF backend for rendering scenes to vector PDF documents
+---
+
+## Overview
+
+`PdfBackend` renders a `Scene` to PDF bytes. This backend requires the `pdf` feature flag and uses `svg2pdf` to convert SVG scenes to vector PDF.
+
+<Warning>
+This backend requires the `pdf` feature:
+
+```toml
+[dependencies]
+kuva = { version = "0.1", features = ["pdf"] }
+```
+</Warning>
+
+## Usage
+
+```rust
+use kuva::backend::pdf::PdfBackend;
+use kuva::render::render::Scene;
+
+let scene = /* your Scene */;
+let pdf_bytes = PdfBackend::new()
+    .render_scene(&scene)
+    .expect("Failed to render PDF");
+
+std::fs::write("plot.pdf", pdf_bytes).unwrap();
+```
+
+## Constructor
+
+### `new`
+
+Creates a new PDF backend.
+
+```rust
+let backend = PdfBackend::new();
+```
+
+**Returns:** `PdfBackend`
+
+### `default`
+
+Alias for `new()`.
+
+## Methods
+
+### `render_scene`
+
+Renders a `Scene` to PDF bytes.
+
+<ParamField path="scene" type="&Scene" required>
+  The scene to render
+</ParamField>
+
+**Returns:** `Result<Vec<u8>, String>`
+- `Ok(bytes)` - PDF file data ready to write
+- `Err(msg)` - Error message if rendering failed
+
+**Example:**
+
+```rust
+let pdf = PdfBackend::new().render_scene(&scene)?;
+std::fs::write("plot.pdf", pdf)?;
+```
+
+## Implementation
+
+The PDF backend:
+1. Renders the scene to SVG using `SvgBackend`
+2. Loads system fonts into an `svg2pdf` font database
+3. Parses the SVG with `usvg`
+4. Converts to PDF with default conversion and page options
+5. Returns PDF bytes
+
+## Output Format
+
+The PDF output:
+- Is a vector format (scales without quality loss)
+- Embeds fonts from the system
+- Uses default page size based on SVG dimensions
+- Preserves all SVG elements (paths, text, gradients)
+
+## Convenience Function
+
+For one-shot rendering, use:
+
+```rust
+use kuva::render_to_pdf;
+
+let plots = vec![scatter.into()];
+let layout = Layout::auto_from_plots(&plots);
+let pdf = render_to_pdf(plots, layout)?;
+```
+
+## Source
+
+`src/backend/pdf.rs`

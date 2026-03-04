@@ -1,0 +1,329 @@
+---
+title: Strip Plot
+description: Individual points in categorical groups with jitter, swarm, or center layouts
+---
+
+Strip plots (also called dot plots or univariate scatter plots) display individual data points as dots along a categorical x-axis, with each group forming a vertical column. Kuva's `StripPlot` offers three layout modes: jittered (random horizontal spread), swarm (non-overlapping beeswarm), and center (stacked at group midpoint).
+
+## When to Use
+
+- Showing every individual data point in categorical groups
+- Small to medium sample sizes (N < ~500 per group)
+- Revealing data density without binning
+- Overlaying raw data on box plots or violin plots
+- Comparing distributions while preserving granularity
+
+## Basic Example
+
+```rust
+use kuva::plot::StripPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let strip = StripPlot::new()
+    .with_group("Control",   vec![4.1, 5.0, 5.3, 5.8, 6.2, 4.7, 5.5])
+    .with_group("Treatment", vec![5.5, 6.1, 6.4, 7.2, 7.8, 6.9, 7.0])
+    .with_color("steelblue")
+    .with_jitter(0.3)
+    .with_point_size(3.0);
+
+let plots = vec![Plot::Strip(strip)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Control vs. Treatment")
+    .with_x_label("Group")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("strip.svg", svg).unwrap();
+```
+
+## Three Layout Modes
+
+### Jittered (Default)
+
+Random horizontal spread:
+
+```rust
+.with_jitter(0.3)  // Spread points ±30% of category width
+```
+
+- **Best for**: Large N, fast rendering
+- **Pros**: Quick, scales well
+- **Cons**: Random placement may obscure density
+
+### Swarm (Beeswarm)
+
+Non-overlapping deterministic layout:
+
+```rust
+.with_swarm()
+```
+
+- **Best for**: N < ~200 per group
+- **Pros**: Reveals density clearly, no overlap
+- **Cons**: Points pushed far from center with very large N
+
+### Center (Stacked)
+
+All points at group midpoint:
+
+```rust
+.with_center()
+```
+
+- **Best for**: Density columns, many points
+- **Pros**: Vertical density immediately obvious
+- **Cons**: Complete horizontal overlap
+
+## Key Methods
+
+### Data Input
+
+<ParamField path="with_group" type="method">
+  Add a group (one column of points) with a label and values:
+  
+  ```rust
+  .with_group("Control",   vec![4.1, 5.0, 5.3, 5.8])
+  .with_group("Treatment", vec![6.1, 6.4, 7.2, 7.8])
+  ```
+  
+  Groups are rendered left-to-right in the order added.
+</ParamField>
+
+### Styling
+
+<ParamField path="with_color" type="method">
+  Set the point fill color:
+  
+  ```rust
+  .with_color("steelblue")
+  .with_color("rgba(70,130,180,0.6)")  // Semi-transparent for overlays
+  ```
+</ParamField>
+
+<ParamField path="with_point_size" type="method">
+  Set point radius in pixels (default `4.0`):
+  
+  ```rust
+  .with_point_size(3.0)  // Smaller points
+  .with_point_size(2.0)  // For very large datasets
+  ```
+</ParamField>
+
+### Layout Modes
+
+<ParamField path="with_jitter" type="method">
+  Use jittered layout with specified horizontal spread:
+  
+  ```rust
+  .with_jitter(0.3)  // ±30% of category width
+  .with_jitter(0.4)  // Wider spread
+  ```
+  
+  `jitter` is the half-width as a fraction of the category slot. Position is randomized using the seed from `.with_seed()`.
+</ParamField>
+
+<ParamField path="with_swarm" type="method">
+  Use beeswarm (non-overlapping) layout:
+  
+  ```rust
+  .with_swarm()
+  ```
+  
+  Points placed as close to center as possible without overlapping. Outline traces the density distribution.
+</ParamField>
+
+<ParamField path="with_center" type="method">
+  Place all points at group center (no horizontal spread):
+  
+  ```rust
+  .with_center()
+  ```
+  
+  Creates a vertical column of overlapping points.
+</ParamField>
+
+<ParamField path="with_seed" type="method">
+  Set RNG seed for jitter positions (default `42`):
+  
+  ```rust
+  .with_seed(123)  // Different random arrangement
+  ```
+  
+  Changes the jitter pattern while keeping output reproducible.
+</ParamField>
+
+### Legend
+
+<ParamField path="with_legend" type="method">
+  Attach a legend label:
+  
+  ```rust
+  .with_legend("Experimental data")
+  ```
+</ParamField>
+
+## Examples
+
+### Jittered Strip Plot
+
+```rust
+use rand::SeedableRng;
+use rand_distr::{Distribution, Normal};
+
+fn normal_samples(mean: f64, std: f64, n: usize, seed: u64) -> Vec<f64> {
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
+    Normal::new(mean, std).unwrap()
+        .sample_iter(&mut rng)
+        .take(n)
+        .collect()
+}
+
+let strip = StripPlot::new()
+    .with_group("Control",   normal_samples(5.0, 0.8, 300, 1))
+    .with_group("Low dose",  normal_samples(6.5, 1.1, 300, 2))
+    .with_group("High dose", normal_samples(8.0, 1.4, 300, 3))
+    .with_color("steelblue")
+    .with_point_size(2.5)
+    .with_jitter(0.35);
+```
+
+### Beeswarm
+
+```rust
+let strip = StripPlot::new()
+    .with_group("Control",     normal_samples(0.0, 1.0, 150, 10))
+    .with_group("Bimodal",     bimodal_samples(-1.5, 1.5, 0.55, 150, 11))
+    .with_group("Right-skewed", skewed_samples(1.2, -0.5, 150, 12))
+    .with_color("steelblue")
+    .with_point_size(3.0)
+    .with_swarm();
+```
+
+### Center Stack
+
+```rust
+let strip = StripPlot::new()
+    .with_group("Normal",  normal_samples(5.0, 1.0, 400, 20))
+    .with_group("Bimodal", bimodal_samples(2.0, 8.0, 0.8, 400, 21))
+    .with_group("Skewed",  skewed_samples(1.5, 1.0, 400, 22))
+    .with_color("steelblue")
+    .with_point_size(2.0)
+    .with_center();
+```
+
+### Box Plot + Strip Overlay
+
+```rust
+use kuva::plot::BoxPlot;
+
+let data_a = normal_samples(4.0, 1.0, 80, 30);
+let data_b = normal_samples(5.5, 1.6, 80, 31);
+
+let boxplot = BoxPlot::new()
+    .with_group("Control",     data_a.clone())
+    .with_group("High-spread", data_b.clone())
+    .with_color("steelblue");
+
+let strip = StripPlot::new()
+    .with_group("Control",     data_a)
+    .with_group("High-spread", data_b)
+    .with_color("rgba(0,0,0,0.3)")  // Semi-transparent
+    .with_point_size(2.5)
+    .with_jitter(0.2);
+
+let plots = vec![Plot::Box(boxplot), Plot::Strip(strip)];
+```
+
+### Multiple Strip Plots with Palette
+
+```rust
+use kuva::Palette;
+
+let strip_a = StripPlot::new()
+    .with_group("WT",  normal_samples(5.0, 0.9, 200, 40))
+    .with_group("HET", normal_samples(6.2, 1.0, 200, 41))
+    .with_group("KO",  normal_samples(7.8, 1.3, 200, 42))
+    .with_jitter(0.3)
+    .with_point_size(2.5)
+    .with_legend("Line A");
+
+let strip_b = StripPlot::new()
+    .with_group("WT",  normal_samples(5.3, 0.9, 200, 43))
+    .with_group("HET", normal_samples(6.8, 1.0, 200, 44))
+    .with_group("KO",  normal_samples(8.4, 1.1, 200, 45))
+    .with_jitter(0.3)
+    .with_point_size(2.5)
+    .with_legend("Line B");
+
+let plots = vec![Plot::Strip(strip_a), Plot::Strip(strip_b)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::wong());  // Assigns colors automatically
+```
+
+## Choosing a Layout Mode
+
+| Mode | N per group | Rendering | Density clarity |
+|------|-------------|-----------|----------------|
+| **Jitter** | Any (100s-1000s) | Fast | Moderate |
+| **Swarm** | < 200 | Slower | High |
+| **Center** | 100s-1000s | Fast | High (vertical) |
+
+### When to Use Each
+
+- **Jitter**: Default choice; works for any sample size; randomness may obscure fine density structure
+- **Swarm**: Best clarity for N < 200; computational cost increases with N
+- **Center**: Emphasize vertical density when horizontal position is not meaningful
+
+## Tips
+
+<Tip>
+  **Overlaying on summaries**: Use semi-transparent colors (`rgba(...)`) when layering strip plots on box or violin plots so both layers remain visible.
+</Tip>
+
+<Tip>
+  **Point size for large N**: Reduce point size to `2.0` or smaller when plotting hundreds of points per group to minimize overlap.
+</Tip>
+
+<Tip>
+  **Reproducibility**: Set `.with_seed()` to a fixed value (default is `42`) to ensure jitter positions are reproducible across runs.
+</Tip>
+
+<Tip>
+  **Multiple series**: Layer multiple `StripPlot` instances with `.with_legend()` and use `Layout::with_palette()` to auto-assign distinct colors.
+</Tip>
+
+<Warning>
+  Swarm layout becomes impractical above ~200 points per group—points are pushed too far from center. Use jitter or center for larger datasets.
+</Warning>
+
+<Note>
+  Jitter adds random noise for visualization only. It does not change your data. Use `.with_seed()` to make the jitter pattern reproducible.
+</Note>
+
+## Composing with Other Plots
+
+Strip plots excel when combined with summary plots:
+
+```rust
+// Box + Strip: Summary + raw data
+let plots = vec![Plot::Box(boxplot), Plot::Strip(strip)];
+
+// Violin + Strip: Density + raw data
+let plots = vec![Plot::Violin(violin), Plot::Strip(strip)];
+```
+
+This "summary + data" pattern is a best practice in modern data visualization.
+
+## Alternatives
+
+- **Box plots** - Show quartile summaries; better for many groups or very large N
+- **Violin plots** - Smooth density estimate; better when individual points aren't meaningful
+- **Histograms** - Binned counts; better for single distributions
+
+## Source Location
+
+Implementation: `src/plot/strip.rs`  
+Examples: `examples/strip.rs`

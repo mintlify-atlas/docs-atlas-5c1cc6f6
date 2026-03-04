@@ -1,0 +1,233 @@
+---
+title: Annotations
+description: Text annotations, reference lines, and shaded regions for highlighting plot features
+---
+
+## Overview
+
+Kuva provides three annotation types for adding context to plots:
+- `TextAnnotation` - Text labels with optional arrows
+- `ReferenceLine` - Horizontal or vertical reference lines
+- `ShadedRegion` - Rectangular shaded areas
+
+All annotations work in data space coordinates (not pixels).
+
+## TextAnnotation
+
+Text labels with optional arrows pointing to data points.
+
+### Constructor
+
+```rust
+use kuva::render::annotations::TextAnnotation;
+
+let ann = TextAnnotation::new("Outlier", 5.2, 8.1);
+```
+
+<ParamField path="text" type="impl Into<String>" required>
+  Text content
+</ParamField>
+
+<ParamField path="x" type="f64" required>
+  X coordinate in data space
+</ParamField>
+
+<ParamField path="y" type="f64" required>
+  Y coordinate in data space
+</ParamField>
+
+### Methods
+
+#### `with_arrow`
+
+Adds an arrow pointing from the text to a target point.
+
+```rust
+let ann = TextAnnotation::new("Peak", 3.0, 10.0)
+    .with_arrow(2.5, 9.2);  // Arrow points to (2.5, 9.2)
+```
+
+#### `with_color`
+
+Sets text and arrow color.
+
+```rust
+let ann = ann.with_color("red");
+```
+
+#### `with_font_size`
+
+Sets font size (default: 12).
+
+```rust
+let ann = ann.with_font_size(14);
+```
+
+#### `with_arrow_padding`
+
+Sets padding between arrow tip and target point (default: 6.0).
+
+```rust
+let ann = ann.with_arrow_padding(8.0);
+```
+
+### Usage
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_annotation(
+        TextAnnotation::new("Significant", 3.5, 12.0)
+            .with_arrow(3.0, 10.5)
+            .with_color("darkred")
+    );
+```
+
+## ReferenceLine
+
+Horizontal or vertical reference lines with optional labels.
+
+### Constructors
+
+#### `ReferenceLine::horizontal`
+
+Creates a horizontal line at the specified y-value.
+
+```rust
+let line = ReferenceLine::horizontal(5.0);
+```
+
+#### `ReferenceLine::vertical`
+
+Creates a vertical line at the specified x-value.
+
+```rust
+let line = ReferenceLine::vertical(10.0);
+```
+
+### Methods
+
+#### `with_color`
+
+Sets line color (default: "red").
+
+```rust
+let line = line.with_color("blue");
+```
+
+#### `with_label`
+
+Adds a label to the line.
+
+```rust
+let line = line.with_label("Threshold");
+```
+
+#### `with_stroke_width`
+
+Sets line width (default: 1.0).
+
+```rust
+let line = line.with_stroke_width(2.0);
+```
+
+#### `with_dasharray`
+
+Sets dash pattern (default: "6 4").
+
+```rust
+let line = line.with_dasharray("4 2");  // Shorter dashes
+let solid = line.with_dasharray("");    // Solid line
+```
+
+### Usage
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_reference_line(
+        ReferenceLine::horizontal(0.05)
+            .with_label("p = 0.05")
+            .with_color("red")
+    )
+    .with_reference_line(
+        ReferenceLine::vertical(2.0)
+            .with_color("gray")
+            .with_dasharray("2 2")
+    );
+```
+
+## ShadedRegion
+
+Rectangular shaded areas for highlighting ranges.
+
+### Constructors
+
+#### `ShadedRegion::horizontal`
+
+Shades between two y-values (spans full x-axis width).
+
+```rust
+let region = ShadedRegion::horizontal(4.0, 6.0);
+```
+
+#### `ShadedRegion::vertical`
+
+Shades between two x-values (spans full y-axis height).
+
+```rust
+let region = ShadedRegion::vertical(10.0, 20.0);
+```
+
+### Methods
+
+#### `with_color`
+
+Sets fill color (default: "blue").
+
+```rust
+let region = region.with_color("yellow");
+```
+
+#### `with_opacity`
+
+Sets fill opacity (default: 0.15).
+
+```rust
+let region = region.with_opacity(0.3);
+```
+
+### Usage
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_shaded_region(
+        ShadedRegion::vertical(1.0, 3.0)
+            .with_color("green")
+            .with_opacity(0.2)
+    );
+```
+
+## Combining Annotations
+
+Multiple annotations can be added to a single layout:
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Expression Analysis")
+    .with_reference_line(
+        ReferenceLine::horizontal(0.05)
+            .with_label("Significance threshold")
+    )
+    .with_shaded_region(
+        ShadedRegion::horizontal(0.0, 0.01)
+            .with_color("red")
+            .with_opacity(0.1)
+    )
+    .with_annotation(
+        TextAnnotation::new("Top hit", 3.5, -12.0)
+            .with_arrow(3.2, -10.5)
+    );
+```
+
+## Source
+
+`src/render/annotations.rs`

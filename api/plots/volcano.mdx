@@ -1,0 +1,387 @@
+---
+title: VolcanoPlot
+description: API reference for volcano plots visualizing differential expression results
+---
+
+A volcano plot visualises differential expression results by plotting **log₂ fold change** (x-axis) against **−log₁₀(p-value)** (y-axis). Points that pass both the fold-change cutoff and p-value threshold are colored as up-regulated (right) or down-regulated (left); all others are shown as not-significant (gray).
+
+Dashed threshold lines are drawn automatically at ±`fc_cutoff` and at the y position corresponding to `p_cutoff`.
+
+## Constructor
+
+### `new()`
+
+Create a volcano plot with default settings.
+
+**Returns:** `VolcanoPlot`
+
+**Defaults:**
+- fc_cutoff `1.0`
+- p_cutoff `0.05`
+- Firebrick/steelblue/gray colors
+- Point size `3.0`
+- No labels
+- No legend
+
+```rust
+use kuva::plot::VolcanoPlot;
+
+let vp = VolcanoPlot::new();
+```
+
+## Adding Data
+
+### `with_point()`
+
+Add a single point by name, log₂FC, and raw p-value.
+
+<ParamField path="name" type="S: Into<String>">
+  Gene or feature name, shown as a label when selected
+</ParamField>
+
+<ParamField path="log2fc" type="F: Into<f64>">
+  Log₂ fold change on the x-axis
+</ParamField>
+
+<ParamField path="pvalue" type="G: Into<f64>">
+  Raw p-value (not −log10). Zero p-values are handled automatically.
+</ParamField>
+
+**Returns:** `Self`
+
+Useful when building a plot incrementally. For bulk input prefer `with_points`.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_point("EGFR", 3.2_f64, 1e-4_f64)
+    .with_point("GAPDH", 0.3, 0.5);
+```
+
+### `with_points()`
+
+Add multiple points from an iterator of `(name, log2fc, pvalue)` tuples.
+
+<ParamField path="iter" type="I: IntoIterator<Item = (S, F, G)>">
+  Iterator of tuples containing (name, log2fc, pvalue). Accepts any types that implement `Into<String>` / `Into<f64>`.
+</ParamField>
+
+**Returns:** `Self`
+
+This is the primary input method.
+
+```rust
+let results = vec![
+    ("EGFR",  3.2_f64, 1e-4_f64),
+    ("AKT1",  3.5,     5e-5    ),
+    ("VHL",  -3.0,     5e-4    ),
+    ("GAPDH", 0.3,     0.5     ),
+];
+let vp = VolcanoPlot::new().with_points(results);
+```
+
+## Thresholds
+
+### `with_fc_cutoff()`
+
+Set the absolute log₂FC threshold for up/down classification.
+
+<ParamField path="cutoff" type="f64">
+  Absolute log₂FC threshold (default: 1.0 — corresponding to a 2× fold change)
+</ParamField>
+
+**Returns:** `Self`
+
+Dashed vertical lines are drawn at `±fc_cutoff`. Points with `|log2FC| < fc_cutoff` are always shown as not-significant regardless of their p-value.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_fc_cutoff(1.5);  // 2^1.5 ≈ 2.8× fold change
+```
+
+### `with_p_cutoff()`
+
+Set the p-value significance threshold.
+
+<ParamField path="cutoff" type="f64">
+  P-value threshold (default: 0.05)
+</ParamField>
+
+**Returns:** `Self`
+
+A dashed horizontal line is drawn at `−log10(p_cutoff)`. Points with `pvalue > p_cutoff` are shown as not-significant regardless of their fold change.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_p_cutoff(0.01);  // more stringent threshold
+```
+
+## Colors
+
+### `with_color_up()`
+
+Set the color for up-regulated points.
+
+<ParamField path="color" type="S: Into<String>">
+  CSS color string (default: `"firebrick"`)
+</ParamField>
+
+**Returns:** `Self`
+
+A point is up-regulated when `log2fc ≥ fc_cutoff` **and** `pvalue ≤ p_cutoff`.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_color_up("crimson");
+```
+
+### `with_color_down()`
+
+Set the color for down-regulated points.
+
+<ParamField path="color" type="S: Into<String>">
+  CSS color string (default: `"steelblue"`)
+</ParamField>
+
+**Returns:** `Self`
+
+A point is down-regulated when `log2fc ≤ −fc_cutoff` **and** `pvalue ≤ p_cutoff`.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_color_down("navy");
+```
+
+### `with_color_ns()`
+
+Set the color for not-significant points.
+
+<ParamField path="color" type="S: Into<String>">
+  CSS color string (default: `"#aaaaaa"`)
+</ParamField>
+
+**Returns:** `Self`
+
+All points that do not meet both the fold-change and p-value thresholds are drawn in this color.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_color_ns("lightgray");
+```
+
+## Point Styling
+
+### `with_point_size()`
+
+Set the circle radius in pixels.
+
+<ParamField path="size" type="f64">
+  Circle radius (default: 3.0)
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_point_size(4.0);
+```
+
+## Gene Labels
+
+### `with_label_top()`
+
+Label the `n` most significant points (lowest p-values) with their names.
+
+<ParamField path="n" type="usize">
+  Number of points to label (default: 0 — no labels)
+</ParamField>
+
+**Returns:** `Self`
+
+Use `with_label_style` to control placement.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_label_top(10);  // label the 10 most significant genes
+```
+
+### `with_label_style()`
+
+Set the label placement style.
+
+<ParamField path="style" type="LabelStyle">
+  Label placement style. Options: `LabelStyle::Nudge` (default), `LabelStyle::Exact`, `LabelStyle::Arrow { offset_x, offset_y }`
+</ParamField>
+
+**Returns:** `Self`
+
+- `LabelStyle::Nudge` — labels are sorted by x and nudged vertically to reduce overlap. Best default for most datasets.
+- `LabelStyle::Exact` — labels are placed at the exact point position with no adjustment. May overlap on dense plots.
+- `LabelStyle::Arrow` — labels are offset by `(offset_x, offset_y)` px with a gray leader line back to the point.
+
+```rust
+use kuva::plot::{VolcanoPlot, LabelStyle};
+
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_label_top(10)
+    .with_label_style(LabelStyle::Arrow { offset_x: 14.0, offset_y: 16.0 });
+```
+
+## P-Value Floor
+
+### `with_pvalue_floor()`
+
+Set an explicit p-value floor for the −log10 transform.
+
+<ParamField path="floor" type="f64">
+  Minimum p-value for transformation
+</ParamField>
+
+**Returns:** `Self`
+
+Points with `pvalue == 0.0` are clamped to this value before transformation, preventing infinite y positions. Also sets the y-axis ceiling to `−log10(floor)`.
+
+When not set, the floor is inferred as the minimum non-zero p-value in the data. Set it explicitly when comparing multiple plots that should share the same y-axis scale.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(vec![("EGFR", 3.2_f64, 0.0_f64)])  // p = 0 is valid input
+    .with_pvalue_floor(1e-10);  // y-axis ceiling = 10
+```
+
+## Legend
+
+### `with_legend()`
+
+Enable a legend showing **Up**, **Down**, and **NS** entries.
+
+<ParamField path="label" type="S: Into<String>">
+  Legend title (currently not displayed but required to enable the legend)
+</ParamField>
+
+**Returns:** `Self`
+
+The legend uses the active up/down/NS colors.
+
+```rust
+let vp = VolcanoPlot::new()
+    .with_points(results)
+    .with_legend("DEG status");
+```
+
+## Utility Methods
+
+### `floor()`
+
+Compute the p-value floor used for -log10 transformation.
+
+**Returns:** `f64`
+
+Uses explicit floor if set, otherwise finds minimum non-zero p-value.
+
+```rust
+let floor = vp.floor();  // 1e-4 or explicit value
+```
+
+## Complete Example
+
+```rust
+use kuva::plot::VolcanoPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let vp = VolcanoPlot::new()
+    .with_points(vec![
+        ("EGFR",   3.2_f64, 1e-4_f64),
+        ("AKT1",   3.5,     5e-5   ),
+        ("VHL",   -3.0,     5e-4   ),
+        ("GAPDH",  0.3,     0.5    ),
+    ])
+    .with_label_top(3)
+    .with_legend("DEG status");
+
+let plots = vec![Plot::Volcano(vp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Tumour vs. Normal")
+    .with_x_label("log₂ fold change")
+    .with_y_label("−log₁₀(p-value)");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("volcano.svg", svg).unwrap();
+```
+
+## LabelStyle Enum
+
+### Variants
+
+#### `Exact`
+
+Label placed at the exact point position — no nudge, no leader line. Labels may overlap when many points are clustered together.
+
+#### `Nudge`
+
+Labels sorted by x position and nudged vertically to reduce stacking **(default)**. This is the most readable option for dense data.
+
+#### `Arrow { offset_x: f64, offset_y: f64 }`
+
+Label offset by `(offset_x, offset_y)` pixels with a short gray leader line drawn from the offset position back to the point.
+
+```rust
+use kuva::plot::LabelStyle;
+let style = LabelStyle::Arrow { offset_x: 14.0, offset_y: 16.0 };
+```
+
+## Public Fields
+
+<ParamField path="points" type="Vec<VolcanoPoint>">
+  All data points
+</ParamField>
+
+<ParamField path="fc_cutoff" type="f64">
+  |log₂FC| threshold for up/down classification (default: 1.0)
+</ParamField>
+
+<ParamField path="p_cutoff" type="f64">
+  P-value threshold for significance (default: 0.05)
+</ParamField>
+
+<ParamField path="color_up" type="String">
+  Color for up-regulated points (default: `"firebrick"`)
+</ParamField>
+
+<ParamField path="color_down" type="String">
+  Color for down-regulated points (default: `"steelblue"`)
+</ParamField>
+
+<ParamField path="color_ns" type="String">
+  Color for not-significant points (default: `"#aaaaaa"`)
+</ParamField>
+
+<ParamField path="point_size" type="f64">
+  Circle radius in pixels (default: 3.0)
+</ParamField>
+
+<ParamField path="label_top" type="usize">
+  Number of most-significant points to label (default: 0)
+</ParamField>
+
+<ParamField path="label_style" type="LabelStyle">
+  Label placement style (default: `LabelStyle::Nudge`)
+</ParamField>
+
+<ParamField path="pvalue_floor" type="Option<f64>">
+  Explicit p-value floor for the −log10 transform. When `None`, the minimum non-zero p-value in the data is used automatically.
+</ParamField>
+
+<ParamField path="legend_label" type="Option<String>">
+  When `Some`, a legend box shows Up / Down / NS entries
+</ParamField>

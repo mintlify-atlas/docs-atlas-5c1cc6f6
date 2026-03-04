@@ -1,0 +1,204 @@
+---
+title: ChordPlot
+description: Circular diagram showing flows between nodes with tapered ribbons
+---
+
+A chord diagram displays N nodes arranged around a circle, connected by ribbons whose widths are proportional to flow magnitudes from an N×N matrix. Each node occupies an arc segment on the outer ring; arc length is proportional to the node's total flow (row sum). Ribbons connect pairs of nodes; ribbon width at each end is proportional to the flow in that direction.
+
+## Constructor
+
+### new
+
+Create a chord plot with default settings.
+
+```rust
+use kuva::plot::ChordPlot;
+
+let chord = ChordPlot::new();
+```
+
+**Returns:** `ChordPlot`
+
+**Defaults:**
+- Gap: 2° between arc segments
+- Pad fraction: 0.85 (inner radius = outer radius × 0.85)
+- Ribbon opacity: 0.7
+- No legend
+- Category10 color palette
+
+## Data Input
+
+### with_matrix
+
+Set the N×N flow matrix.
+
+```rust
+pub fn with_matrix(self, matrix: Vec<Vec<f64>>) -> Self
+```
+
+<ParamField path="matrix" type="Vec<Vec<f64>>">
+  N×N flow matrix where `matrix[i][j]` is the flow from node i to node j
+</ParamField>
+
+The matrix must be square. Diagonal entries are typically `0.0` (self-loops are not rendered).
+
+**Symmetric vs asymmetric matrices:**
+- **Symmetric** (`matrix[i][j] == matrix[j][i]`): ribbons have equal width at both ends (undirected relationships)
+- **Asymmetric** (`matrix[i][j] != matrix[j][i]`): ribbons are wider at the stronger sender (directed flows)
+
+**Example:**
+```rust
+let matrix = vec![
+    vec![ 0.0, 50.0, 30.0],
+    vec![50.0,  0.0, 40.0],
+    vec![30.0, 40.0,  0.0],
+];
+let chord = ChordPlot::new().with_matrix(matrix);
+```
+
+## Node Configuration
+
+### with_labels
+
+Set the node labels shown outside the arc segments.
+
+```rust
+pub fn with_labels<S: Into<String>>(self, labels: impl IntoIterator<Item = S>) -> Self
+```
+
+<ParamField path="labels" type="impl IntoIterator<Item = String>">
+  Node labels (one per row/column of the matrix)
+</ParamField>
+
+**Example:**
+```rust
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_labels(["Group A", "Group B", "Group C"]);
+```
+
+---
+
+### with_colors
+
+Set explicit per-node fill colors.
+
+```rust
+pub fn with_colors<S: Into<String>>(self, colors: impl IntoIterator<Item = S>) -> Self
+```
+
+<ParamField path="colors" type="impl IntoIterator<Item = String>">
+  CSS color strings (one per node)
+</ParamField>
+
+When not called, the `category10` palette is used automatically, cycling if there are more than ten nodes.
+
+**Example:**
+```rust
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_labels(["Alpha", "Beta"])
+    .with_colors(["#e41a1c", "#377eb8"]);
+```
+
+## Layout Configuration
+
+### with_gap
+
+Set the gap between adjacent arc segments in degrees.
+
+```rust
+pub fn with_gap(self, degrees: f64) -> Self
+```
+
+<ParamField path="degrees" type="f64">
+  Gap in degrees (default: `2.0`)
+</ParamField>
+
+Larger values increase white space between nodes. Total gap = `n_nodes * gap_degrees`.
+
+**Example:**
+```rust
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_gap(5.0);  // wider separation
+```
+
+---
+
+### with_opacity
+
+Set the ribbon fill opacity.
+
+```rust
+pub fn with_opacity(self, f: f64) -> Self
+```
+
+<ParamField path="f" type="f64">
+  Opacity from `0.0` (transparent) to `1.0` (opaque) (default: `0.7`)
+</ParamField>
+
+Reducing opacity makes overlapping ribbons easier to read.
+
+**Example:**
+```rust
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_opacity(0.5);
+```
+
+## Legend
+
+### with_legend
+
+Enable a node legend.
+
+```rust
+pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+```
+
+<ParamField path="label" type="String">
+  Legend label
+</ParamField>
+
+When set, a legend box is rendered showing one color-coded entry per node.
+
+**Example:**
+```rust
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_labels(["A", "B", "C"])
+    .with_legend("Nodes");
+```
+
+## Rendering
+
+The chord diagram is rendered entirely in pixel space — it does not use the standard x/y axis system. `Layout::auto_from_plots` skips axis computation for chord plots. A title set on the `Layout` is still rendered.
+
+## Full Example
+
+```rust
+use kuva::plot::ChordPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let matrix = vec![
+    vec![ 0.0, 120.0,  70.0],
+    vec![120.0,   0.0,  88.0],
+    vec![ 70.0,  88.0,   0.0],
+];
+
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_labels(["CD4 T", "CD8 T", "NK"])
+    .with_legend("Cell types");
+
+let plots = vec![Plot::Chord(chord)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Cell Type Co-clustering");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("chord.svg", svg).unwrap();
+```

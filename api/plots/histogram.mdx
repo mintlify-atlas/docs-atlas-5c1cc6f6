@@ -1,0 +1,182 @@
+---
+title: Histogram
+description: API reference for Histogram - histograms with binning and normalization
+---
+
+## Histogram
+
+Builder for creating histograms. Bins a 1-D dataset and renders each bin as a vertical bar. The bin boundaries are computed from the data range (or an explicit range) and the requested bin count.
+
+### Constructor
+
+<ParamField path="Histogram::new()" type="Self">
+  Create a histogram with default settings.
+  
+  **Defaults:**
+  - 10 bins
+  - Color: `"black"`
+  - No normalization
+  - No range (must be set explicitly)
+</ParamField>
+
+### Data Methods
+
+<ParamField path="with_data" type="Self">
+  ```rust
+  pub fn with_data<T, I>(self, data: I) -> Self
+  where
+      I: IntoIterator<Item = T>,
+      T: Into<f64>
+  ```
+  
+  Set the input data. Accepts any iterator of values implementing `Into<f64>`. Values outside the active range are silently ignored.
+  
+  **Important:** `with_range()` must also be called. Without an explicit range, `Layout::auto_from_plots` cannot determine the axis extent and the chart will be empty.
+  
+  **Example:**
+  ```rust
+  let data = vec![1.1, 2.3, 2.7, 3.2, 3.8];
+  let min = data.iter().cloned().fold(f64::INFINITY, f64::min);
+  let max = data.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+  let hist = Histogram::new()
+      .with_data(data)
+      .with_range((min, max));
+  ```
+</ParamField>
+
+<ParamField path="with_bins" type="Self">
+  ```rust
+  pub fn with_bins(self, bins: usize) -> Self
+  ```
+  
+  Set the number of equal-width bins (default `10`). The bin edges span from `range.min` to `range.max`. Choose a value that balances resolution against noise for your sample size.
+</ParamField>
+
+<ParamField path="with_range" type="Self">
+  ```rust
+  pub fn with_range(self, range: (f64, f64)) -> Self
+  ```
+  
+  Set the bin range — **required** for `Layout::auto_from_plots` to work. Without an explicit range, `bounds()` returns `None` and `Layout::auto_from_plots` cannot determine the axis extent, resulting in an empty chart.
+  
+  Typically pass the data min/max. For overlapping histograms, pass the same combined range to both so their x-axes align. Values outside the range are silently ignored during binning.
+  
+  **Example:**
+  ```rust
+  let data = vec![0.1, 0.5, 1.2, 2.8, 3.0];
+  let min = data.iter().cloned().fold(f64::INFINITY, f64::min);
+  let max = data.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+  let hist = Histogram::new()
+      .with_data(data)
+      .with_range((min, max));
+  ```
+</ParamField>
+
+### Styling Methods
+
+<ParamField path="with_color" type="Self">
+  ```rust
+  pub fn with_color<S: Into<String>>(self, color: S) -> Self
+  ```
+  
+  Set the bar fill color. Accepts CSS color strings (e.g. `"steelblue"`, `"#4682b4"`). 
+  
+  For overlapping histograms, use an 8-digit hex color with an alpha channel (`#RRGGBBAA`) so bars from different series show through:
+  
+  **Example:**
+  ```rust
+  let hist = Histogram::new()
+      .with_data(vec![1.0, 2.0, 3.0])
+      .with_color("#4682b480");  // steelblue at 50% opacity
+  ```
+</ParamField>
+
+<ParamField path="with_normalize" type="Self">
+  ```rust
+  pub fn with_normalize(self) -> Self
+  ```
+  
+  Normalize bar heights so the tallest bar equals `1.0`. This is a peak-normalization — not a probability density. The y-axis represents relative frequency (tallest bin = 1), not counts or probability per unit width.
+</ParamField>
+
+### Legend Methods
+
+<ParamField path="with_legend" type="Self">
+  ```rust
+  pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+  ```
+  
+  Attach a legend label to this histogram. A legend is rendered automatically when at least one plot in the `Vec<Plot>` has a label.
+</ParamField>
+
+## Complete Example
+
+### Simple Histogram
+
+```rust
+use kuva::plot::Histogram;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data = vec![1.1, 2.3, 2.7, 3.2, 3.8, 3.9, 4.0, 1.5, 2.1, 3.5];
+let min = data.iter().cloned().fold(f64::INFINITY, f64::min);
+let max = data.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+
+let hist = Histogram::new()
+    .with_data(data)
+    .with_bins(10)
+    .with_range((min, max))
+    .with_color("steelblue");
+
+let plots = vec![Plot::Histogram(hist)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Histogram")
+    .with_x_label("Value")
+    .with_y_label("Count");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("histogram.svg", svg).unwrap();
+```
+
+### Overlapping Histograms
+
+```rust
+use kuva::plot::Histogram;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data1 = vec![1.1, 2.3, 2.7, 3.2, 3.8, 3.9, 4.0];
+let data2 = vec![2.5, 3.1, 3.9, 4.2, 4.8, 5.0, 5.5];
+
+// Compute combined range
+let all_data: Vec<f64> = data1.iter().chain(data2.iter()).cloned().collect();
+let min = all_data.iter().cloned().fold(f64::INFINITY, f64::min);
+let max = all_data.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+
+let hist1 = Histogram::new()
+    .with_data(data1)
+    .with_bins(15)
+    .with_range((min, max))
+    .with_color("#4682b480")  // steelblue with transparency
+    .with_legend("Group A");
+
+let hist2 = Histogram::new()
+    .with_data(data2)
+    .with_bins(15)
+    .with_range((min, max))
+    .with_color("#ff634780")  // tomato with transparency
+    .with_legend("Group B");
+
+let plots = vec![Plot::Histogram(hist1), Plot::Histogram(hist2)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Overlapping Histograms")
+    .with_x_label("Value")
+    .with_y_label("Count");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("overlapping_histograms.svg", svg).unwrap();
+```

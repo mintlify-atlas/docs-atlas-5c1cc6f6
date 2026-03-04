@@ -1,0 +1,203 @@
+---
+title: DateTimeAxis
+description: Date and time axis configuration with automatic tick generation
+---
+
+## Overview
+
+`DateTimeAxis` provides calendar-aware tick generation for time series data. It automatically aligns ticks to calendar boundaries (midnight, month start, etc.) and formats them using strftime patterns.
+
+## Usage
+
+```rust
+use kuva::prelude::*;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_datetime(DateTimeAxis::days("%Y-%m-%d"));
+```
+
+## Constructors
+
+### `DateTimeAxis::years`
+
+Creates a year-based axis.
+
+```rust
+let axis = DateTimeAxis::years("%Y");
+```
+
+### `DateTimeAxis::months`
+
+Creates a month-based axis.
+
+```rust
+let axis = DateTimeAxis::months("%b %Y");  // "Jan 2024"
+```
+
+### `DateTimeAxis::weeks`
+
+Creates a week-based axis (ticks on Mondays).
+
+```rust
+let axis = DateTimeAxis::weeks("%Y-%m-%d");
+```
+
+### `DateTimeAxis::days`
+
+Creates a day-based axis (ticks at midnight).
+
+```rust
+let axis = DateTimeAxis::days("%m-%d");
+```
+
+### `DateTimeAxis::hours`
+
+Creates an hour-based axis.
+
+```rust
+let axis = DateTimeAxis::hours("%H:00");
+```
+
+### `DateTimeAxis::minutes`
+
+Creates a minute-based axis.
+
+```rust
+let axis = DateTimeAxis::minutes("%H:%M");
+```
+
+### `DateTimeAxis::auto`
+
+Automatically selects unit and format based on data range.
+
+<ParamField path="min" type="f64" required>
+  Minimum timestamp (Unix seconds)
+</ParamField>
+
+<ParamField path="max" type="f64" required>
+  Maximum timestamp (Unix seconds)
+</ParamField>
+
+```rust
+let min_ts = ymd(2024, 1, 1);
+let max_ts = ymd(2024, 12, 31);
+let axis = DateTimeAxis::auto(min_ts, max_ts);  // Chooses days
+```
+
+**Auto-selection rules:**
+- < 2 min: seconds
+- < 2 hours: minutes
+- < 3 days: hours
+- < 90 days: days
+- < 3 years: months
+- >= 3 years: years
+
+## Methods
+
+### `with_step`
+
+Sets the step interval for tick generation.
+
+```rust
+let axis = DateTimeAxis::hours("%H:00")
+    .with_step(3);  // Every 3 hours
+```
+
+### `generate_ticks`
+
+Generates tick positions aligned to calendar boundaries.
+
+<ParamField path="min" type="f64" required>
+  Minimum timestamp
+</ParamField>
+
+<ParamField path="max" type="f64" required>
+  Maximum timestamp
+</ParamField>
+
+**Returns:** `Vec<f64>` - Tick positions as Unix timestamps
+
+```rust
+let ticks = axis.generate_ticks(min_ts, max_ts);
+```
+
+### `format_tick`
+
+Formats a timestamp using the configured strftime format.
+
+<ParamField path="ts" type="f64" required>
+  Unix timestamp to format
+</ParamField>
+
+**Returns:** `String` - Formatted date/time string
+
+```rust
+let label = axis.format_tick(1704067200.0);  // "2024-01-01"
+```
+
+## Helper Functions
+
+### `ymd`
+
+Converts year-month-day to Unix timestamp.
+
+```rust
+use kuva::render::datetime::ymd;
+
+let ts = ymd(2024, 3, 15);  // March 15, 2024 at midnight UTC
+```
+
+### `ymd_hms`
+
+Converts year-month-day-hour-minute-second to Unix timestamp.
+
+```rust
+use kuva::render::datetime::ymd_hms;
+
+let ts = ymd_hms(2024, 3, 15, 14, 30, 0);  // March 15, 2024 at 14:30:00 UTC
+```
+
+## Complete Example
+
+```rust
+use kuva::prelude::*;
+
+let data = vec![
+    (ymd(2024, 1, 1), 10.0),
+    (ymd(2024, 1, 15), 12.0),
+    (ymd(2024, 2, 1), 11.0),
+    (ymd(2024, 2, 15), 13.0),
+];
+
+let line = LinePlot::new()
+    .with_data(data.clone());
+
+let plots = vec![line.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Time Series")
+    .with_x_datetime(DateTimeAxis::days("%b %d"))
+    .with_x_label("Date")
+    .with_y_label("Value");
+
+let svg = render_to_svg(plots, layout);
+```
+
+## Format Specifiers
+
+Common strftime format codes:
+
+| Code | Meaning | Example |
+|------|---------|----------|
+| `%Y` | 4-digit year | 2024 |
+| `%y` | 2-digit year | 24 |
+| `%m` | Month (01-12) | 03 |
+| `%b` | Month abbr | Mar |
+| `%B` | Month full | March |
+| `%d` | Day (01-31) | 15 |
+| `%H` | Hour (00-23) | 14 |
+| `%M` | Minute (00-59) | 30 |
+| `%S` | Second (00-59) | 45 |
+
+## Source
+
+`src/render/datetime.rs`

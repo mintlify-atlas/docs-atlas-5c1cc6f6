@@ -1,80 +1,444 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start"
+description: "Create your first plot with Kuva in minutes using either the Rust library or CLI"
 ---
 
-## Get started in three steps
+## Your First Plot
 
-Get your documentation site running locally and make your first customization.
+This guide walks you through creating a scatter plot using both the Rust library API and the CLI. By the end, you'll understand the basic workflow for generating publication-ready visualizations.
 
-### Step 1: Set up your local environment
+## Using the Library
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Create a new Rust project">
+    ```bash
+    cargo new my-plot-project
+    cd my-plot-project
+    ```
 
-### Step 2: Deploy your changes
+    Add Kuva to `Cargo.toml`:
+    ```toml
+    [dependencies]
+    kuva = "0.1"
+    ```
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+  <Step title="Build a scatter plot">
+    Replace the contents of `src/main.rs` with:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```rust
+    use kuva::prelude::*;
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    fn main() {
+        // Define your data as (x, y) tuples
+        let data = vec![
+            (1.0_f64, 2.0),
+            (3.0, 5.0),
+            (5.0, 4.0),
+            (7.0, 8.0),
+            (9.0, 7.0),
+        ];
 
-### Step 3: Go live
+        // Build the plot using the builder pattern
+        let plot = ScatterPlot::new()
+            .with_data(data)
+            .with_color("steelblue")
+            .with_size(5.0)
+            .with_legend("Sample Data");
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+        // Convert to Plot enum and collect into Vec
+        let plots: Vec<Plot> = vec![plot.into()];
 
-## Next steps
+        // Create layout with auto-computed axis ranges
+        let layout = Layout::auto_from_plots(&plots)
+            .with_title("My First Plot")
+            .with_x_label("X Axis")
+            .with_y_label("Y Axis");
 
-Now that you have your docs running, explore these key features:
+        // Render to SVG
+        let svg = render_to_svg(plots, layout);
+        
+        // Write to file
+        std::fs::write("my_plot.svg", svg).unwrap();
+        
+        println!("Plot saved to my_plot.svg");
+    }
+    ```
+  </Step>
 
-<CardGroup cols={2}>
+  <Step title="Run and view the output">
+    ```bash
+    cargo run
+    ```
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+    This creates `my_plot.svg` in your project directory. Open it in a web browser or any SVG viewer.
+  </Step>
+</Steps>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **What just happened?** You created a `ScatterPlot` with builder methods, converted it to the `Plot` enum, configured a `Layout`, and rendered to SVG in one line with `render_to_svg()`.
 </Note>
+
+## Understanding the Pipeline
+
+Every Kuva plot follows this four-stage pipeline:
+
+```text
+1. Build Plot      2. Collect       3. Layout        4. Render
+ScatterPlot::new() → vec![plot.into()] → Layout::auto_from_plots() → render_to_svg()
+```
+
+### 1. Build the Plot
+
+Each plot type has a `new()` constructor and builder methods:
+
+```rust
+let plot = ScatterPlot::new()
+    .with_data(data)           // Required: your data points
+    .with_color("steelblue")   // Optional: point color
+    .with_size(5.0)            // Optional: point size
+    .with_legend("Label");     // Optional: legend entry
+```
+
+Builder methods are chainable and return `Self`, allowing fluent configuration.
+
+### 2. Collect into Plot Enum
+
+The `Plot` enum unifies all 25 plot types. Convert using `.into()`:
+
+```rust
+let plots: Vec<Plot> = vec![plot.into()];
+```
+
+This allows mixing plot types on one canvas:
+
+```rust
+let scatter = ScatterPlot::new().with_data(data1);
+let line = LinePlot::new().with_data(data2);
+
+let plots: Vec<Plot> = vec![scatter.into(), line.into()];
+```
+
+### 3. Configure Layout
+
+`Layout` controls axis ranges, labels, titles, grid, and more:
+
+```rust
+let layout = Layout::auto_from_plots(&plots)  // Auto-compute ranges from data
+    .with_title("Title")
+    .with_x_label("X")
+    .with_y_label("Y")
+    .with_x_range(0.0, 10.0)    // Optional: override auto range
+    .with_log_y()               // Optional: logarithmic scale
+    .with_theme(Theme::Light);  // Optional: apply theme
+```
+
+### 4. Render to Output
+
+Choose your backend:
+
+<CodeGroup>
+  ```rust SVG (always available)
+  let svg = render_to_svg(plots, layout);
+  std::fs::write("plot.svg", svg).unwrap();
+  ```
+
+  ```rust PNG (requires "png" feature)
+  let png_bytes = render_to_png(plots, layout, 2.0).unwrap();
+  std::fs::write("plot.png", png_bytes).unwrap();
+  ```
+
+  ```rust PDF (requires "pdf" feature)
+  let pdf_bytes = render_to_pdf(plots, layout).unwrap();
+  std::fs::write("plot.pdf", pdf_bytes).unwrap();
+  ```
+</CodeGroup>
+
+## Using the CLI
+
+The CLI provides access to all plot types without writing code.
+
+<Steps>
+  <Step title="Prepare your data">
+    Create a TSV or CSV file. For example, `data.tsv`:
+
+    ```text
+    x	y
+    1.0	2.0
+    3.0	5.0
+    5.0	4.0
+    7.0	8.0
+    9.0	7.0
+    ```
+
+    <Note>
+      Kuva auto-detects TSV vs CSV based on file extension and content. Use `.tsv` for tab-separated, `.csv` for comma-separated.
+    </Note>
+  </Step>
+
+  <Step title="Generate a plot">
+    ```bash
+    kuva scatter data.tsv --x x --y y -o my_plot.svg
+    ```
+
+    This creates a scatter plot by:
+    - Reading `data.tsv`
+    - Using column `x` for X-axis data
+    - Using column `y` for Y-axis data
+    - Writing output to `my_plot.svg`
+  </Step>
+
+  <Step title="Customize the plot">
+    Add titles, labels, and styling:
+
+    ```bash
+    kuva scatter data.tsv \
+      --x x --y y \
+      --title "My First Plot" \
+      --x-label "X Axis" \
+      --y-label "Y Axis" \
+      --color steelblue \
+      --size 5 \
+      -o my_plot.svg
+    ```
+  </Step>
+</Steps>
+
+### CLI Input Options
+
+<ParamField path="Input file" type="string" default="stdin">
+  Path to TSV/CSV file. Omit to read from stdin:
+  ```bash
+  cat data.tsv | kuva scatter --x 0 --y 1
+  ```
+</ParamField>
+
+<ParamField path="Column selection" type="string | number">
+  Select columns by name (`--x col_name`) or 0-based index (`--x 0`):
+  ```bash
+  # By name
+  kuva scatter data.tsv --x temperature --y pressure
+  
+  # By index (0-based)
+  kuva scatter data.tsv --x 0 --y 1
+  ```
+</ParamField>
+
+<ParamField path="Output format" type="svg | png | pdf" default="svg to stdout">
+  Specify output file and format with `-o`:
+  ```bash
+  kuva scatter data.tsv --x x --y y -o plot.svg   # SVG
+  kuva scatter data.tsv --x x --y y -o plot.png   # PNG (requires --features png)
+  kuva scatter data.tsv --x x --y y -o plot.pdf   # PDF (requires --features pdf)
+  ```
+  
+  Omit `-o` to write SVG to stdout (useful for piping).
+</ParamField>
+
+### Terminal Rendering
+
+Render plots directly in your terminal with `--terminal`:
+
+```bash
+kuva scatter data.tsv --x x --y y --terminal
+```
+
+This uses Unicode/ASCII art to display the plot without creating a file. Useful for quick data exploration in SSH sessions or scripts.
+
+## Common Plot Types
+
+Here are quick examples of other popular plot types:
+
+<CodeGroup>
+  ```rust Line Plot
+  use kuva::prelude::*;
+
+  let data = vec![(1.0, 2.0), (2.0, 3.5), (3.0, 3.0), (4.0, 5.0)];
+  
+  let plot = LinePlot::new()
+      .with_data(data)
+      .with_color("crimson")
+      .with_width(2.0);
+
+  let plots = vec![plot.into()];
+  let svg = render_to_svg(plots, Layout::auto_from_plots(&plots));
+  ```
+
+  ```rust Bar Plot
+  use kuva::prelude::*;
+
+  let categories = vec!["A", "B", "C", "D"];
+  let values = vec![10.0, 25.0, 18.0, 32.0];
+  
+  let plot = BarPlot::new()
+      .with_categories(categories)
+      .with_values(values)
+      .with_color("steelblue");
+
+  let plots = vec![plot.into()];
+  let svg = render_to_svg(plots, Layout::auto_from_plots(&plots));
+  ```
+
+  ```rust Histogram
+  use kuva::prelude::*;
+
+  let data = vec![1.2, 2.3, 2.1, 3.4, 2.8, 4.1, 3.9, 2.5];
+  
+  let plot = Histogram::new()
+      .with_data(data)
+      .with_bins(10)
+      .with_color("seagreen");
+
+  let plots = vec![plot.into()];
+  let svg = render_to_svg(plots, Layout::auto_from_plots(&plots));
+  ```
+
+  ```rust Box Plot
+  use kuva::prelude::*;
+
+  let group1 = BoxGroup::from_data(vec![1.0, 2.0, 2.5, 3.0, 4.0])
+      .with_label("Control");
+  let group2 = BoxGroup::from_data(vec![2.0, 3.5, 4.0, 5.0, 6.0])
+      .with_label("Treatment");
+  
+  let plot = BoxPlot::new()
+      .with_groups(vec![group1, group2]);
+
+  let plots = vec![plot.into()];
+  let svg = render_to_svg(plots, Layout::auto_from_plots(&plots));
+  ```
+</CodeGroup>
+
+### CLI Examples
+
+<CodeGroup>
+  ```bash Line Plot
+  kuva line data.tsv --x time --y value --color crimson -o line.svg
+  ```
+
+  ```bash Bar Plot
+  kuva bar data.tsv --categories category --values count --color steelblue -o bar.svg
+  ```
+
+  ```bash Histogram
+  kuva histogram data.tsv --values measurement --bins 20 -o hist.svg
+  ```
+
+  ```bash Box Plot
+  kuva box data.tsv --group-col treatment --value-col response -o box.svg
+  ```
+</CodeGroup>
+
+## Adding Multiple Plot Series
+
+Overlay multiple datasets on one plot:
+
+```rust
+use kuva::prelude::*;
+
+let data1 = vec![(1.0, 2.0), (2.0, 3.0), (3.0, 4.0)];
+let data2 = vec![(1.0, 1.5), (2.0, 2.8), (3.0, 3.2)];
+
+let plot1 = ScatterPlot::new()
+    .with_data(data1)
+    .with_color("steelblue")
+    .with_legend("Series A");
+
+let plot2 = ScatterPlot::new()
+    .with_data(data2)
+    .with_color("crimson")
+    .with_legend("Series B");
+
+let plots: Vec<Plot> = vec![plot1.into(), plot2.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Multiple Series")
+    .with_x_label("X")
+    .with_y_label("Y");
+
+let svg = render_to_svg(plots, layout);
+```
+
+The layout automatically expands axis ranges to fit all series, and the legend appears if any plot has `.with_legend()` specified.
+
+## Styling and Themes
+
+Apply pre-built themes for consistent styling:
+
+```rust
+use kuva::prelude::*;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::Dark);  // Built-in dark theme
+```
+
+Available themes:
+- `Theme::Default` — Light background, black text
+- `Theme::Dark` — Dark background, white text
+- `Theme::Light` — Minimal light theme
+- `Theme::Solarized` — Solarized color scheme
+
+Use color palettes for multi-series plots:
+
+```rust
+let palette = Palette::Viridis;  // Sequential color scale
+let palette = Palette::Set1;     // Categorical colors
+```
+
+## Error Handling
+
+PNG and PDF rendering can fail if SVG is malformed. Handle errors properly:
+
+```rust
+use kuva::prelude::*;
+
+let plots = vec![/* ... */];
+let layout = Layout::auto_from_plots(&plots);
+
+match render_to_png(plots, layout, 2.0) {
+    Ok(png_bytes) => {
+        std::fs::write("plot.png", png_bytes).unwrap();
+        println!("PNG saved successfully");
+    }
+    Err(e) => {
+        eprintln!("PNG rendering failed: {}", e);
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Plot Type Reference" icon="chart-line" href="/plots">
+    Explore all 25 plot types with examples
+  </Card>
+  
+  <Card title="Layout Configuration" icon="sliders" href="/reference/layout">
+    Learn about axis customization, themes, and annotations
+  </Card>
+  
+  <Card title="CLI Reference" icon="terminal" href="/cli">
+    Complete CLI command reference for all plot types
+  </Card>
+  
+  <Card title="API Documentation" icon="code" href="https://docs.rs/kuva">
+    Browse the full Rust API documentation
+  </Card>
+</CardGroup>
+
+## Tips for Success
+
+<Tip>
+  **Start with `auto_from_plots()`** — Let Kuva compute axis ranges automatically from your data, then override specific settings only when needed.
+</Tip>
+
+<Tip>
+  **Use the prelude** — Import `use kuva::prelude::*;` once instead of importing individual types. It includes everything you need for typical use cases.
+</Tip>
+
+<Tip>
+  **SVG is portable** — Start with SVG output (no features required). It works everywhere and can be converted to other formats later if needed.
+</Tip>
+
+<Tip>
+  **Explore examples** — The [GitHub repository](https://github.com/Psy-Fer/kuva) contains 25+ examples in the `examples/` directory showing every plot type.
+</Tip>

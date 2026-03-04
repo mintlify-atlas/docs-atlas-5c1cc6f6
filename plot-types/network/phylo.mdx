@@ -1,0 +1,343 @@
+---
+title: PhyloTree
+description: Phylogenetic tree visualization with support for Newick format, multiple orientations, and branch styles
+---
+
+`PhyloTree` displays phylogenetic trees with support for multiple input formats, branch styles, and orientation options. Trees can be rendered as rectangular dendrograms, slanted cladograms, or circular radial layouts.
+
+## When to Use
+
+Phylogenetic trees are ideal for:
+
+- **Evolutionary relationships** — species phylogenies, gene families, viral evolution
+- **Hierarchical clustering** — sample dendrograms, distance-based trees
+- **Taxonomic classification** — organism classification trees
+- **Gene trees** — orthologs, paralogs, domain evolution
+- **Structural relationships** — protein family trees, structural clustering
+
+## Basic Example
+
+```rust
+use kuva::plot::PhyloTree;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let tree = PhyloTree::from_newick(
+    "((TaxonA:1.0,TaxonB:2.0)95:1.0,(TaxonC:0.5,TaxonD:0.5)88:1.5,TaxonE:3.0);"
+)
+.with_support_threshold(80.0);  // Show support values >= 80
+
+let plots = vec![Plot::PhyloTree(tree)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Rectangular Tree");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("phylo.svg", svg).unwrap();
+```
+
+## Input Formats
+
+### Newick Format
+
+Parse standard Newick strings with branch lengths and support values:
+
+```rust
+let tree = PhyloTree::from_newick(
+    "((A:1.0,B:3.0)90:1.0,(C:2.0,(D:0.5,E:1.5)85:1.0):2.0);"
+);
+```
+
+Newick format supports:
+- Branch lengths (`:1.0`)
+- Bootstrap/posterior support values on internal nodes
+- Arbitrarily nested subtrees
+- Optional labels on internal nodes
+
+### Edge List
+
+Build a tree from `(parent_label, child_label, branch_length)` tuples:
+
+```rust
+let edges: Vec<(&str, &str, f64)> = vec![
+    ("root",     "Bacteria",    1.5),
+    ("root",     "Eukarya",     2.0),
+    ("Bacteria", "E. coli",     0.5),
+    ("Bacteria", "B. subtilis", 0.7),
+    ("Eukarya",  "Yeast",       1.0),
+    ("Eukarya",  "Human",       0.8),
+];
+
+let tree = PhyloTree::from_edges(&edges);
+```
+
+The root is automatically identified as the node that never appears as a child.
+
+### Distance Matrix (UPGMA)
+
+Build a tree by UPGMA clustering of a symmetric distance matrix:
+
+```rust
+let labels = ["Wolf", "Cat", "Whale", "Human"];
+let dist = vec![
+    vec![0.0, 0.5, 0.9, 0.8],
+    vec![0.5, 0.0, 0.9, 0.8],
+    vec![0.9, 0.9, 0.0, 0.7],
+    vec![0.8, 0.8, 0.7, 0.0],
+];
+
+let tree = PhyloTree::from_distance_matrix(&labels, &dist)
+    .with_phylogram();
+```
+
+### Linkage Matrix
+
+Build from a scipy/R-style linkage matrix where each row is `[left_idx, right_idx, distance, n_leaves]`:
+
+```rust
+let labels = ["A", "B", "C", "D"];
+let linkage = [
+    [0.0, 1.0, 0.2, 2.0],  // Merge A and B at distance 0.2
+    [2.0, 3.0, 0.3, 2.0],  // Merge C and D at distance 0.3
+    [4.0, 5.0, 0.8, 4.0],  // Merge previous clusters
+];
+
+let tree = PhyloTree::from_linkage(&labels, &linkage);
+```
+
+Indices `0..n-1` are the original leaves; `n..` are internal nodes.
+
+## Tree Styles
+
+### Rectangular (Default)
+
+Right-angle elbows at the parent depth:
+
+```rust
+use kuva::plot::{PhyloTree, TreeBranchStyle};
+
+let tree = PhyloTree::from_newick(newick)
+    .with_branch_style(TreeBranchStyle::Rectangular);
+```
+
+### Slanted
+
+Single diagonal line from parent to child:
+
+```rust
+let tree = PhyloTree::from_newick(newick)
+    .with_branch_style(TreeBranchStyle::Slanted);
+```
+
+### Circular (Radial)
+
+Polar projection for large trees:
+
+```rust
+let tree = PhyloTree::from_newick(newick)
+    .with_branch_style(TreeBranchStyle::Circular)
+    .with_phylogram();
+```
+
+Circular layout is ideal for visualizing 15+ taxa where labels would overlap in rectangular layouts.
+
+## Orientations
+
+Control which side the root appears on:
+
+```rust
+use kuva::plot::{PhyloTree, TreeOrientation};
+
+let tree = PhyloTree::from_newick(newick)
+    .with_orientation(TreeOrientation::Top);     // Root at top
+    // TreeOrientation::Left     — Root at left (default)
+    // TreeOrientation::Right    — Root at right
+    // TreeOrientation::Bottom   — Root at bottom
+```
+
+## Phylogram Mode
+
+By default, trees are rendered as cladograms (all leaves aligned). Enable phylogram mode to use branch lengths for the depth axis:
+
+```rust
+let tree = PhyloTree::from_newick(newick)
+    .with_phylogram();  // Use branch lengths for depth positioning
+```
+
+In phylogram mode, the horizontal distance from root to each node reflects its accumulated branch length.
+
+## Clade Coloring
+
+Color entire subtrees (clades) to highlight taxonomic groups:
+
+```rust
+let edges: Vec<(&str, &str, f64)> = vec![
+    ("root",     "Bacteria",    1.5),
+    ("root",     "Eukarya",     2.0),
+    ("Bacteria", "E. coli",     0.5),
+    ("Bacteria", "B. subtilis", 0.7),
+    ("Eukarya",  "Yeast",       1.0),
+    ("Eukarya",  "Human",       0.8),
+];
+
+// In from_edges, node IDs are assigned in order of first appearance:
+// 0 = root, 1 = Bacteria, 2 = Eukarya, ...
+let tree = PhyloTree::from_edges(&edges)
+    .with_clade_color(1, "#e41a1c")   // Bacteria subtree → red
+    .with_clade_color(2, "#377eb8")   // Eukarya subtree → blue
+    .with_legend("Domains");
+```
+
+## Support Values
+
+Display bootstrap or posterior probability values on internal nodes:
+
+```rust
+let tree = PhyloTree::from_newick(
+    "((A:1.0,B:2.0)95:1.0,(C:0.5,D:0.5)88:1.5);"
+)
+.with_support_threshold(80.0);  // Only show values >= 80
+```
+
+Support values are parsed from Newick labels on internal nodes (e.g., `(A,B)95` → support = 95).
+
+## Styling Options
+
+```rust
+let tree = PhyloTree::from_newick(newick)
+    .with_branch_color("#555555")      // Branch line color
+    .with_leaf_color("black")          // Leaf label text color
+    .with_support_threshold(70.0)      // Show support >= 70
+    .with_legend("Species groups");
+```
+
+## Key Methods
+
+### `PhyloTree::from_newick(s: &str)`
+
+Parse a Newick-format string. Supports branch lengths (`:1.0`), support values on internal nodes, and arbitrarily nested subtrees.
+
+### `PhyloTree::from_edges(edges: &[(S, S, f64)])`
+
+Build from `(parent_label, child_label, branch_length)` edges. Root is the node that never appears as a child.
+
+### `PhyloTree::from_distance_matrix(labels: &[&str], dist: &[Vec<f64>])`
+
+Build by UPGMA clustering of a symmetric distance matrix.
+
+### `PhyloTree::from_linkage(labels: &[&str], linkage: &[[f64; 4]])`
+
+Build from scipy/R linkage matrix. Each row is `[left_idx, right_idx, distance, n_leaves]`.
+
+### `.with_orientation(o: TreeOrientation)`
+
+Set which side the root appears on: `Left` (default), `Right`, `Top`, or `Bottom`.
+
+### `.with_branch_style(s: TreeBranchStyle)`
+
+Set branch drawing style: `Rectangular` (default), `Slanted`, or `Circular`.
+
+### `.with_phylogram()`
+
+Enable phylogram mode — use branch lengths for the depth axis instead of equal spacing.
+
+### `.with_branch_color<S: Into<String>>(c: S)`
+
+Set color for all branch lines. Accepts any CSS color string.
+
+### `.with_leaf_color<S: Into<String>>(c: S)`
+
+Set text color for leaf labels.
+
+### `.with_support_threshold(t: f64)`
+
+Show support values (bootstrap/posterior) >= threshold. Set to `None` to hide all support values.
+
+### `.with_clade_color<S: Into<String>>(node_id: usize, color: S)`
+
+Color the entire subtree rooted at `node_id`. Use this to highlight taxonomic groups or clades of interest.
+
+### `.with_legend<S: Into<String>>(label: S)`
+
+Enable a legend (useful with clade colors).
+
+### `.leaf_labels_top_to_bottom() -> Vec<String>`
+
+Return leaf labels in top-to-bottom render order. Use this to set `y_categories` on a side-by-side `Heatmap` for row alignment:
+
+```rust
+let tree = PhyloTree::from_newick(newick);
+let row_order = tree.leaf_labels_top_to_bottom();
+
+let heatmap = Heatmap::new()
+    .with_y_categories(row_order);
+```
+
+## Data Structures
+
+### PhyloTree
+
+```rust
+pub struct PhyloTree {
+    pub nodes: Vec<PhyloNode>,
+    pub root: usize,
+    pub orientation: TreeOrientation,
+    pub branch_style: TreeBranchStyle,
+    pub phylogram: bool,               // Use branch lengths for depth
+    pub branch_color: String,
+    pub leaf_color: String,
+    pub support_threshold: Option<f64>,
+    pub clade_colors: Vec<(usize, String)>,
+    pub legend_label: Option<String>,
+}
+```
+
+### PhyloNode
+
+```rust
+pub struct PhyloNode {
+    pub id: usize,
+    pub label: Option<String>,         // Leaf label or internal node label
+    pub parent: Option<usize>,
+    pub children: Vec<usize>,
+    pub branch_length: f64,            // Edge length from parent
+    pub support: Option<f64>,          // Bootstrap/posterior support
+}
+```
+
+### TreeOrientation
+
+```rust
+pub enum TreeOrientation {
+    Left,     // Root at left, leaves at right (default)
+    Right,    // Root at right, leaves at left
+    Top,      // Root at top, leaves at bottom
+    Bottom,   // Root at bottom, leaves at top
+}
+```
+
+### TreeBranchStyle
+
+```rust
+pub enum TreeBranchStyle {
+    Rectangular,  // Right-angle elbows (default)
+    Slanted,      // Diagonal lines
+    Circular,     // Polar/radial projection
+}
+```
+
+## Tips
+
+- **Large trees**: Use circular layout for 15+ taxa to avoid label overlap
+- **Phylogram vs cladogram**: Use phylogram when branch lengths are meaningful (evolutionary time, genetic distance)
+- **Support values**: Display bootstrap/posterior values to indicate confidence in internal branches
+- **Clade coloring**: Highlight major taxonomic groups or functional categories
+- **Alignment with heatmaps**: Use `.leaf_labels_top_to_bottom()` to get leaf order for heatmap row ordering
+- **Branch styles**: Rectangular is most common in phylogenetics; slanted saves space; circular works for radial layouts
+- **Newick format**: Most phylogeny software exports Newick; test your parser with edge cases (missing branch lengths, support values)
+
+## Related Plots
+
+- [Heatmap](/plot-types/specialized/heatmap) — Often paired with phylogenetic trees for expression data
+- [Dendrogram](/plot-types/categorical/dendrogram) — Hierarchical clustering trees (same underlying structure)

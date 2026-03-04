@@ -1,0 +1,249 @@
+---
+title: Box Plot
+description: Five-number summary with Tukey whiskers for comparing distributions across groups
+---
+
+Box plots (box-and-whisker plots) display the five-number summary of a dataset: minimum, Q1 (25th percentile), median (Q2/50th percentile), Q3 (75th percentile), and maximum. Kuva's `BoxPlot` uses the Tukey 1.5×IQR rule for whiskers, making outliers easy to spot. Individual data points can be overlaid as jittered strips or beeswarms.
+
+## When to Use
+
+- Comparing distributions across multiple groups
+- Quickly assessing center, spread, and skewness
+- Identifying outliers
+- Visualizing experimental conditions side-by-side
+- Showing quartile-based summaries when you don't need full density
+
+## Basic Example
+
+```rust
+use kuva::plot::BoxPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = BoxPlot::new()
+    .with_group("Control",   vec![4.1, 5.0, 5.3, 5.8, 6.2, 7.0])
+    .with_group("Treated",   vec![5.5, 6.1, 6.4, 7.2, 7.8, 8.5])
+    .with_color("steelblue");
+
+let plots = vec![Plot::Box(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Control vs. Treated")
+    .with_x_label("Group")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("boxplot.svg", svg).unwrap();
+```
+
+## Key Methods
+
+### Data Input
+
+<ParamField path="with_group" type="method">
+  Add a group (one box) with a label and raw values:
+  
+  ```rust
+  .with_group("Control", vec![4.1, 5.0, 5.3, 5.8, 6.2, 7.0])
+  .with_group("Treated", vec![5.5, 6.1, 6.4, 7.2, 7.8, 8.5])
+  ```
+  
+  Groups are rendered left-to-right in the order they are added. The renderer computes Q1, median, Q3, and Tukey whiskers from the supplied values.
+</ParamField>
+
+### Styling
+
+<ParamField path="with_color" type="method">
+  Set the box fill color:
+  
+  ```rust
+  .with_color("steelblue")
+  .with_color("#4682b4")
+  ```
+  
+  This color is applied to all boxes. To use different colors per group, create multiple `BoxPlot` instances and layer them.
+</ParamField>
+
+<ParamField path="with_width" type="method">
+  Set box width as a fraction of the category slot (default `0.8`):
+  
+  ```rust
+  .with_width(0.6)  // Narrower boxes
+  .with_width(1.0)  // Boxes touch
+  ```
+</ParamField>
+
+### Overlays
+
+<ParamField path="with_strip" type="method">
+  Overlay individual data points as a jittered strip:
+  
+  ```rust
+  .with_strip(0.2)  // jitter = horizontal spread in data units
+  ```
+  
+  `jitter` controls the horizontal spread. A value of `0.2` spreads points ±20% of the category width. Use a semi-transparent color with `.with_overlay_color()` so the box remains visible.
+</ParamField>
+
+<ParamField path="with_swarm_overlay" type="method">
+  Overlay individual points as a beeswarm (non-overlapping layout):
+  
+  ```rust
+  .with_swarm_overlay()
+  ```
+  
+  Points are spread horizontally to avoid overlap, clearly revealing density. Works best for N < ~200 per group.
+</ParamField>
+
+<ParamField path="with_overlay_color" type="method">
+  Set the fill color for overlay points (default `"rgba(0,0,0,0.45)"`):
+  
+  ```rust
+  .with_overlay_color("rgba(0,0,0,0.3)")  // More transparent
+  ```
+</ParamField>
+
+<ParamField path="with_overlay_size" type="method">
+  Set the radius of overlay points in pixels (default `3.0`):
+  
+  ```rust
+  .with_overlay_size(2.5)
+  ```
+</ParamField>
+
+### Legend
+
+<ParamField path="with_legend" type="method">
+  Attach a legend label:
+  
+  ```rust
+  .with_legend("Treatment A")
+  ```
+</ParamField>
+
+## Examples
+
+### Basic Box Plot
+
+```rust
+use rand::SeedableRng;
+use rand_distr::{Distribution, Normal};
+
+fn samples(mean: f64, std: f64, n: usize, seed: u64) -> Vec<f64> {
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
+    Normal::new(mean, std).unwrap()
+        .sample_iter(&mut rng)
+        .take(n)
+        .collect()
+}
+
+let plot = BoxPlot::new()
+    .with_group("Control",     samples(5.0, 1.0, 60, 1))
+    .with_group("Treatment A", samples(6.5, 1.2, 60, 2))
+    .with_group("Treatment B", samples(4.2, 0.9, 60, 3))
+    .with_group("Treatment C", samples(7.1, 1.5, 60, 4))
+    .with_color("steelblue");
+```
+
+### Box Plot with Strip Overlay
+
+```rust
+let plot = BoxPlot::new()
+    .with_group("Control",     samples(5.0, 1.0, 60, 1))
+    .with_group("Treatment A", samples(6.5, 1.2, 60, 2))
+    .with_group("Treatment B", samples(4.2, 0.9, 60, 3))
+    .with_group("Treatment C", samples(7.1, 1.5, 60, 4))
+    .with_color("steelblue")
+    .with_strip(0.2)                        // jitter width
+    .with_overlay_color("rgba(0,0,0,0.4)")  // semi-transparent points
+    .with_overlay_size(3.0);
+```
+
+### Box Plot with Swarm Overlay
+
+```rust
+let plot = BoxPlot::new()
+    .with_group("Control",     samples(5.0, 1.0, 60, 1))
+    .with_group("Treatment A", samples(6.5, 1.2, 60, 2))
+    .with_group("Treatment B", samples(4.2, 0.9, 60, 3))
+    .with_color("steelblue")
+    .with_swarm_overlay()
+    .with_overlay_color("rgba(0,0,0,0.4)")
+    .with_overlay_size(3.0);
+```
+
+### Multiple Box Plots with Different Colors
+
+```rust
+// Create separate BoxPlot instances for different colors
+let box_a = BoxPlot::new()
+    .with_group("Control", samples(5.0, 1.0, 60, 1))
+    .with_color("steelblue")
+    .with_legend("Line A");
+
+let box_b = BoxPlot::new()
+    .with_group("Treatment", samples(6.5, 1.2, 60, 2))
+    .with_color("crimson")
+    .with_legend("Line B");
+
+let plots = vec![Plot::Box(box_a), Plot::Box(box_b)];
+```
+
+## Understanding Box Plots
+
+### Five-Number Summary
+
+- **Box bottom edge**: Q1 (25th percentile)
+- **Line inside box**: Median (Q2, 50th percentile)
+- **Box top edge**: Q3 (75th percentile)
+- **Box height**: IQR (Interquartile Range = Q3 - Q1)
+- **Whiskers**: Tukey 1.5×IQR rule
+
+### Whisker Calculation
+
+Kuva uses the Tukey method:
+
+- **Lower whisker**: Extends to the smallest value ≥ Q1 - 1.5×IQR
+- **Upper whisker**: Extends to the largest value ≤ Q3 + 1.5×IQR
+- **Outliers**: Values beyond the whiskers (not automatically plotted; use overlays to show all points)
+
+### Reading Box Plots
+
+- **Center**: Median line shows typical value
+- **Spread**: Box height (IQR) shows middle 50% of data
+- **Skewness**: Asymmetric box or whiskers indicate skew
+- **Outliers**: Points beyond whiskers are unusual values
+
+## Tips
+
+<Tip>
+  **Show the data**: Use `.with_strip()` or `.with_swarm_overlay()` to reveal the actual data points, especially with small sample sizes (N < 100).
+</Tip>
+
+<Tip>
+  **Comparing groups**: Box plots excel at comparing 3+ groups side-by-side. For two groups, consider violin plots to see more detail.
+</Tip>
+
+<Tip>
+  **Many groups**: Box plots scale well to 10+ groups in a single plot, making them ideal for screening experiments.
+</Tip>
+
+<Warning>
+  Box plots hide multimodal distributions. If you suspect your data has multiple peaks, use a violin plot or histogram instead.
+</Warning>
+
+<Note>
+  Whiskers do not show min/max in Kuva; they use the Tukey 1.5×IQR rule. Values beyond the whiskers exist but aren't plotted by default.
+</Note>
+
+## Alternatives
+
+- **Violin plots** - Show full density estimate; reveal multimodality and distribution shape
+- **Strip plots** - Show every individual point without summarization
+- **Histograms** - More detail for single distributions
+
+## Source Location
+
+Implementation: `src/plot/boxplot.rs`  
+Examples: `examples/boxplot.rs`

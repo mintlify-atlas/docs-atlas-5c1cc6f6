@@ -1,0 +1,137 @@
+---
+title: Theme
+description: Visual theme controlling plot chrome colors (axes, grid, background, text)
+---
+
+## Overview
+
+`Theme` controls all non-data visual elements of a plot:
+- Background, axes, grid, tick marks
+- Text and legend styling
+- Plot-specific chrome (box medians, violin borders, etc.)
+
+Themes are separate from `Palette`, which controls data element colors.
+
+## Usage
+
+```rust
+use kuva::prelude::*;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark());
+```
+
+## Built-in Themes
+
+### `Theme::light()`
+
+Light background theme (default).
+
+- Background: white
+- Axes/ticks: black
+- Grid: #ccc
+- Text: black
+- Shows grid by default
+
+### `Theme::dark()`
+
+Dark background theme.
+
+- Background: #1e1e1e
+- Axes/ticks: #cccccc
+- Grid: #444444
+- Text: #e0e0e0
+- Shows grid by default
+
+### `Theme::minimal()`
+
+Minimal theme with no grid and serif font.
+
+- Background: white
+- Axes/ticks: black
+- Grid: hidden
+- Text: black
+- Font: serif
+- Legend: no border
+
+### `Theme::solarized()`
+
+Solarized light theme.
+
+- Background: #fdf6e3
+- Axes/ticks: #586e75
+- Grid: #eee8d5
+- Text: #657b83
+- Shows grid by default
+
+## Custom Themes
+
+Create a custom theme by modifying fields:
+
+```rust
+let mut theme = Theme::dark();
+theme.background = "#0d1117".into();
+theme.grid_color = "#30363d".into();
+theme.show_grid = true;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(theme);
+```
+
+## Fields
+
+<ParamField path="background" type="String">
+  Background color
+</ParamField>
+
+<ParamField path="axis_color" type="String">
+  Color of axis lines
+</ParamField>
+
+<ParamField path="grid_color" type="String">
+  Color of grid lines
+</ParamField>
+
+<ParamField path="tick_color" type="String">
+  Color of tick marks
+</ParamField>
+
+<ParamField path="text_color" type="String">
+  Color of all text (labels, titles, ticks)
+</ParamField>
+
+<ParamField path="legend_bg" type="String">
+  Legend background color
+</ParamField>
+
+<ParamField path="legend_border" type="String">
+  Legend border color (use "none" for no border)
+</ParamField>
+
+<ParamField path="pie_leader" type="String">
+  Color of pie chart leader lines
+</ParamField>
+
+<ParamField path="box_median" type="String">
+  Color of box plot median line
+</ParamField>
+
+<ParamField path="violin_border" type="String">
+  Color of violin plot outline
+</ParamField>
+
+<ParamField path="colorbar_border" type="String">
+  Color of colorbar border
+</ParamField>
+
+<ParamField path="font_family" type="Option<String>">
+  Font family (e.g., "serif", "sans-serif", "monospace")
+</ParamField>
+
+<ParamField path="show_grid" type="bool">
+  Whether to show grid lines by default
+</ParamField>
+
+## Source
+
+`src/render/theme.rs`

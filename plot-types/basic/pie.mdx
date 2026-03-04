@@ -1,0 +1,262 @@
+---
+title: Pie Chart
+description: Proportional slices for part-to-whole relationships and categorical composition
+---
+
+Pie charts display proportions as slices of a circular chart, where each slice's angle represents its fraction of the whole. Kuva's `PiePlot` supports automatic, inside, or outside label positioning, percentage annotations, donut charts (hollow center), and legends.
+
+## When to Use
+
+- Showing part-to-whole relationships for a single categorical variable
+- Displaying simple proportions (ideally 2-7 categories)
+- Emphasizing that parts sum to 100%
+- Creating donut charts with a hollow center
+- Budget breakdowns, market share, survey responses
+
+## Basic Example
+
+```rust
+use kuva::plot::{PiePlot, PieLabelPosition};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_pie;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let pie = PiePlot::new()
+    .with_slice("Rust",   40.0, "steelblue")
+    .with_slice("Python", 30.0, "tomato")
+    .with_slice("R",      20.0, "seagreen")
+    .with_slice("Other",  10.0, "gold");
+
+let plots = vec![Plot::Pie(pie.clone())];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Language Usage");
+
+let svg = SvgBackend.render_scene(&render_pie(&pie, &layout));
+std::fs::write("pie.svg", svg).unwrap();
+```
+
+<Note>
+  Pie charts use `render_pie` for single-plot rendering. Use `render_multiple` when a legend is attached.
+</Note>
+
+## Key Methods
+
+### Data Input
+
+<ParamField path="with_slice" type="method">
+  Add a slice with label, value, and color:
+  
+  ```rust
+  .with_slice("Category A", 60.0, "steelblue")
+  .with_slice("Category B", 40.0, "tomato")
+  ```
+  
+  Slices are drawn clockwise starting from the top (12 o'clock) in the order added. Values are proportional—only the ratio matters, not absolute magnitude.
+</ParamField>
+
+### Donut Charts
+
+<ParamField path="with_inner_radius" type="method">
+  Set inner radius in pixels to create a donut chart:
+  
+  ```rust
+  .with_inner_radius(60.0)  // Hollow center
+  ```
+  
+  A value of `0.0` (the default) renders a solid pie. Typical values for donuts: `40.0`–`80.0` depending on canvas size.
+</ParamField>
+
+### Label Positioning
+
+<ParamField path="with_label_position" type="method">
+  Control where slice labels appear:
+  
+  ```rust
+  use kuva::plot::PieLabelPosition;
+  
+  .with_label_position(PieLabelPosition::Auto)     // Default: inside for large, outside for small
+  .with_label_position(PieLabelPosition::Inside)   // Centered between inner and outer radius
+  .with_label_position(PieLabelPosition::Outside)  // Outside with leader lines
+  .with_label_position(PieLabelPosition::None)     // No labels (use legend instead)
+  ```
+</ParamField>
+
+<ParamField path="with_percent" type="method">
+  Append percentage to each slice label:
+  
+  ```rust
+  .with_percent()  // "Rust 40.0%"
+  ```
+  
+  Percentages are computed from slice values and formatted to one decimal place.
+</ParamField>
+
+<ParamField path="with_min_label_fraction" type="method">
+  Set minimum slice fraction below which no label is drawn (default `0.05` = 5%):
+  
+  ```rust
+  .with_min_label_fraction(0.02)  // Label slices >= 2%
+  .with_min_label_fraction(0.0)   // Label all slices
+  ```
+</ParamField>
+
+### Legend
+
+<ParamField path="with_legend" type="method">
+  Attach a legend showing all slices:
+  
+  ```rust
+  .with_legend("Category")
+  ```
+  
+  When a legend label is set, `render_multiple` adds per-slice legend entries (colored square + label) in the right margin. Combine with `.with_label_position(PieLabelPosition::None)` to use the legend exclusively.
+</ParamField>
+
+## Examples
+
+### Simple Pie Chart
+
+```rust
+let pie = PiePlot::new()
+    .with_slice("Rust",   40.0, "steelblue")
+    .with_slice("Python", 30.0, "tomato")
+    .with_slice("R",      20.0, "seagreen")
+    .with_slice("Other",  10.0, "gold");
+
+let plots = vec![Plot::Pie(pie.clone())];
+let layout = Layout::auto_from_plots(&plots).with_title("Pie Chart");
+let svg = SvgBackend.render_scene(&render_pie(&pie, &layout));
+```
+
+### Donut Chart
+
+```rust
+let pie = PiePlot::new()
+    .with_slice("Rust",   40.0, "steelblue")
+    .with_slice("Python", 30.0, "tomato")
+    .with_slice("R",      20.0, "seagreen")
+    .with_slice("Other",  10.0, "gold")
+    .with_inner_radius(60.0);  // Hollow center
+
+let plots = vec![Plot::Pie(pie.clone())];
+let layout = Layout::auto_from_plots(&plots).with_title("Donut Chart");
+let svg = SvgBackend.render_scene(&render_pie(&pie, &layout));
+```
+
+### Pie with Percentages
+
+```rust
+let pie = PiePlot::new()
+    .with_slice("Rust",   40.0, "steelblue")
+    .with_slice("Python", 30.0, "tomato")
+    .with_slice("R",      20.0, "seagreen")
+    .with_slice("Other",  10.0, "gold")
+    .with_percent();  // Appends "40.0%", "30.0%", etc.
+
+let plots = vec![Plot::Pie(pie.clone())];
+let layout = Layout::auto_from_plots(&plots).with_title("Percentages");
+let svg = SvgBackend.render_scene(&render_pie(&pie, &layout));
+```
+
+### Outside Labels
+
+```rust
+let pie = PiePlot::new()
+    .with_slice("Apples",  30.0, "seagreen")
+    .with_slice("Oranges", 25.0, "darkorange")
+    .with_slice("Bananas", 20.0, "gold")
+    .with_slice("Grapes",  12.0, "mediumpurple")
+    .with_slice("Mango",    8.0, "coral")
+    .with_slice("Kiwi",     5.0, "olivedrab")
+    .with_label_position(PieLabelPosition::Outside);
+
+let plots = vec![Plot::Pie(pie.clone())];
+let layout = Layout::auto_from_plots(&plots).with_title("Outside Labels");
+let svg = SvgBackend.render_scene(&render_pie(&pie, &layout));
+```
+
+### Pie with Legend (No Slice Labels)
+
+```rust
+let pie = PiePlot::new()
+    .with_slice("Apples",  40.0, "seagreen")
+    .with_slice("Oranges", 35.0, "darkorange")
+    .with_slice("Grapes",  25.0, "mediumpurple")
+    .with_legend("Fruit")  // Adds legend
+    .with_percent()
+    .with_label_position(PieLabelPosition::None);  // No labels on slices
+
+let plots = vec![Plot::Pie(pie)];
+let layout = Layout::auto_from_plots(&plots).with_title("Pie with Legend");
+// Use render_multiple for legend rendering
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+```
+
+## Label Positioning Logic
+
+### Auto (Default)
+
+- **Large slices** (≥ `min_label_fraction`, default 5%): Label placed inside
+- **Small slices** (< `min_label_fraction`): Label placed outside with leader line
+- Small slices are automatically spaced to avoid overlap
+
+### Inside
+
+- All labels centered between inner and outer radius
+- Works well when all slices are large enough to fit text
+
+### Outside
+
+- All labels placed outside with leader lines
+- Small slices automatically spaced vertically to prevent overlap
+- Best when slice sizes vary widely
+
+### None
+
+- No slice labels at all
+- Use with `.with_legend()` to identify slices via legend instead
+
+## Tips
+
+<Tip>
+  **Limit categories**: Pie charts work best with 2-7 slices. Beyond that, consider a bar chart or stacked bar chart.
+</Tip>
+
+<Tip>
+  **Emphasize one slice**: Order slices so the most important one is at the top (12 o'clock), or use a distinct color.
+</Tip>
+
+<Tip>
+  **Use percentages**: Add `.with_percent()` so viewers don't have to mentally compute proportions.
+</Tip>
+
+<Tip>
+  **Many small slices**: Use outside labels (`.with_label_position(PieLabelPosition::Outside)`) or a legend to avoid crowding.
+</Tip>
+
+<Warning>
+  Humans are better at comparing lengths (bars) than angles (pie slices). For precise comparisons, bar charts are often more effective.
+</Warning>
+
+<Warning>
+  Avoid 3D pie charts or "exploded" slices—they distort proportions. Kuva renders clean 2D pies for accurate perception.
+</Warning>
+
+## When Not to Use
+
+- **Many categories** (> 7): Use a bar chart
+- **Comparing across multiple groups**: Use grouped or stacked bars
+- **Precise value comparison**: Use a bar chart
+- **Time series**: Use a line plot or stacked area chart
+
+## Alternatives
+
+- **Bar charts** - Better for comparing values; easier to read precise differences
+- **Stacked bar charts** - Show composition across multiple groups
+- **Treemaps** - Hierarchical part-to-whole with more categories
+
+## Source Location
+
+Implementation: `src/plot/pie.rs`  
+Examples: `examples/pie.rs`

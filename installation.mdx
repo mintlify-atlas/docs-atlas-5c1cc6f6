@@ -1,0 +1,241 @@
+---
+title: "Installation"
+description: "Install Kuva as a Rust library or standalone CLI binary with optional PNG and PDF support"
+---
+
+## Installation Methods
+
+Kuva can be installed as a Rust library (for use in your code) or as a standalone CLI binary (for command-line plotting). Both methods support optional PNG and PDF backends.
+
+## Library Installation
+
+<Steps>
+  <Step title="Add Kuva to Cargo.toml">
+    Add the dependency to your `Cargo.toml` file:
+
+    <CodeGroup>
+      ```toml SVG Only (Default)
+      [dependencies]
+      kuva = "0.1"
+      ```
+
+      ```toml With PNG Support
+      [dependencies]
+      kuva = { version = "0.1", features = ["png"] }
+      ```
+
+      ```toml With PDF Support
+      [dependencies]
+      kuva = { version = "0.1", features = ["pdf"] }
+      ```
+
+      ```toml Full (PNG + PDF)
+      [dependencies]
+      kuva = { version = "0.1", features = ["full"] }
+      ```
+    </CodeGroup>
+
+    <Note>
+      The default installation includes only SVG output. Enable optional features for PNG (via `resvg`) or PDF (via `svg2pdf`) support.
+    </Note>
+  </Step>
+
+  <Step title="Import the prelude">
+    Import all commonly used types with a single line:
+
+    ```rust
+    use kuva::prelude::*;
+    ```
+
+    This brings into scope:
+    - All 25 plot structs (`ScatterPlot`, `LinePlot`, `VolcanoPlot`, etc.)
+    - The `Plot` enum
+    - `Layout` and `Figure` for composition
+    - `Theme` and `Palette` for styling
+    - Render functions (`render_to_svg`, `render_to_png`, `render_to_pdf`)
+    - Backend types (`SvgBackend`, `PngBackend`, `PdfBackend`, `TerminalBackend`)
+  </Step>
+
+  <Step title="Verify installation">
+    Create a simple test program to verify the installation:
+
+    ```rust
+    use kuva::prelude::*;
+
+    fn main() {
+        let plot = ScatterPlot::new()
+            .with_data(vec![(1.0_f64, 2.0), (3.0, 4.0)])
+            .with_color("steelblue");
+
+        let plots: Vec<Plot> = vec![plot.into()];
+        let layout = Layout::auto_from_plots(&plots);
+        
+        let svg = render_to_svg(plots, layout);
+        println!("Generated {} bytes of SVG", svg.len());
+    }
+    ```
+
+    Run with `cargo run`. You should see output confirming SVG generation.
+  </Step>
+</Steps>
+
+## CLI Installation
+
+The CLI binary provides command-line access to all plot types without writing Rust code.
+
+<Steps>
+  <Step title="Install from crates.io">
+    <CodeGroup>
+      ```bash SVG Only
+      cargo install kuva --features cli
+      ```
+
+      ```bash Full (SVG + PNG + PDF)
+      cargo install kuva --features cli,full
+      ```
+    </CodeGroup>
+
+    This installs the `kuva` binary to `~/.cargo/bin/` (ensure it's in your PATH).
+
+    <Note>
+      Installation may take several minutes as dependencies are compiled. The `full` feature requires additional system libraries for PDF/PNG rendering.
+    </Note>
+  </Step>
+
+  <Step title="Install from source">
+    Clone the repository and build locally:
+
+    ```bash
+    git clone https://github.com/Psy-Fer/kuva.git
+    cd kuva
+    cargo build --release --bin kuva --features cli
+    ```
+
+    The binary will be at `target/release/kuva`. Copy it to a location in your PATH.
+  </Step>
+
+  <Step title="Verify CLI installation">
+    Check that the CLI is installed and accessible:
+
+    ```bash
+    kuva --version
+    ```
+
+    List available plot types:
+
+    ```bash
+    kuva --help
+    ```
+
+    You should see all 25 subcommands listed (scatter, line, bar, volcano, manhattan, etc.).
+  </Step>
+</Steps>
+
+## Feature Flags Reference
+
+Kuva uses Cargo feature flags to control optional functionality:
+
+| Feature | Description | Dependencies |
+|---------|-------------|-------------|
+| (default) | SVG output only | None (uses built-in SVG renderer) |
+| `png` | Enable PNG rasterization via `resvg` | `resvg = "0.44"` |
+| `pdf` | Enable PDF vector output via `svg2pdf` | `svg2pdf = "0.13"` |
+| `cli` | Build the `kuva` CLI binary | `clap = "4"`, `clap_mangen = "0.2"` |
+| `full` | Enable both PNG and PDF (`png` + `pdf`) | All of the above |
+
+## System Requirements
+
+### Minimum Rust Version
+
+Kuva requires **Rust 2021 edition** or later. The MSRV (Minimum Supported Rust Version) is currently **1.70.0**.
+
+### Platform Support
+
+Kuva is tested on:
+- **Linux** — Ubuntu 20.04+, Debian 11+, Fedora 35+
+- **macOS** — macOS 11+ (Intel and Apple Silicon)
+- **Windows** — Windows 10+ (x86_64)
+
+### Optional Dependencies
+
+If using the `png` feature, ensure you have:
+- Standard C/C++ compiler toolchain
+- System libraries that `resvg` depends on (typically already present)
+
+If using the `pdf` feature:
+- No additional system dependencies required
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Installation fails with linker errors">
+    This typically happens with the `png` feature on systems missing development libraries.
+
+    **On Ubuntu/Debian:**
+    ```bash
+    sudo apt-get install build-essential pkg-config
+    ```
+
+    **On Fedora/RHEL:**
+    ```bash
+    sudo dnf install gcc gcc-c++ pkg-config
+    ```
+
+    **On macOS:**
+    ```bash
+    xcode-select --install
+    ```
+  </Accordion>
+
+  <Accordion title="CLI binary not found after installation">
+    Ensure `~/.cargo/bin` is in your PATH:
+
+    ```bash
+    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+    source ~/.bashrc
+    ```
+
+    Or for zsh:
+    ```bash
+    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.zshrc
+    source ~/.zshrc
+    ```
+  </Accordion>
+
+  <Accordion title="Compilation is very slow">
+    Enable parallel compilation and increase optimization:
+
+    ```bash
+    # Use more CPU cores
+    export CARGO_BUILD_JOBS=8
+    
+    # Or install with cargo-binstall for pre-compiled binaries
+    cargo install cargo-binstall
+    cargo binstall kuva --features cli,full
+    ```
+  </Accordion>
+
+  <Accordion title="Version conflicts with other crates">
+    If you see dependency resolution errors, try:
+
+    ```bash
+    cargo update
+    cargo clean
+    cargo build
+    ```
+
+    Or pin specific dependency versions in your `Cargo.toml`.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first plot in minutes
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="https://docs.rs/kuva">
+    Explore the full API documentation
+  </Card>
+</CardGroup>

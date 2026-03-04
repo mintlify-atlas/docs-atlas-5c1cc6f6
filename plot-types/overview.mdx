@@ -1,0 +1,198 @@
+---
+title: Plot Types Overview
+description: Comprehensive guide to all 25+ plot types available in Kuva
+---
+
+Kuva provides a comprehensive suite of plot types for scientific visualization, from basic scatter and line plots to specialized genomics and network visualizations.
+
+## Basic Plots
+
+Fundamental plot types for everyday data visualization:
+
+<CardGroup cols={2}>
+  <Card title="Scatter Plot" icon="circle-dot" href="/plot-types/basic/scatter">
+    Plot individual (x, y) points with support for error bars, trend lines, and bubble sizing
+  </Card>
+  
+  <Card title="Line Plot" icon="chart-line" href="/plot-types/basic/line">
+    Connect data points with lines, supporting multiple styles, fills, and confidence bands
+  </Card>
+  
+  <Card title="Bar Chart" icon="chart-bar" href="/plot-types/basic/bar">
+    Simple, grouped, and stacked bar charts for categorical data
+  </Card>
+  
+  <Card title="Histogram" icon="chart-column" href="/plot-types/basic/histogram">
+    Visualize distributions by binning continuous data
+  </Card>
+  
+  <Card title="Box Plot" icon="box" href="/plot-types/basic/box">
+    Five-number summary with Tukey whiskers for comparing distributions
+  </Card>
+  
+  <Card title="Violin Plot" icon="violin" href="/plot-types/basic/violin">
+    Kernel density estimation revealing distribution shape and multimodality
+  </Card>
+  
+  <Card title="Pie Chart" icon="chart-pie" href="/plot-types/basic/pie">
+    Proportional slices for part-to-whole relationships
+  </Card>
+  
+  <Card title="Strip Plot" icon="grip-dots-vertical" href="/plot-types/basic/strip">
+    Individual points in categorical groups with jitter, swarm, or center layouts
+  </Card>
+</CardGroup>
+
+## Statistical & Scientific Plots
+
+Specialized visualizations for scientific analysis:
+
+<CardGroup cols={2}>
+  <Card title="Heatmap" icon="table-cells">
+    Matrix visualization with color-mapped values
+  </Card>
+  
+  <Card title="2D Histogram" icon="grid">
+    Density estimation for bivariate data
+  </Card>
+  
+  <Card title="Contour Plot" icon="mountain">
+    Level curves showing continuous 3D surfaces
+  </Card>
+  
+  <Card title="Volcano Plot" icon="volcano">
+    Differential expression with significance thresholds
+  </Card>
+  
+  <Card title="Manhattan Plot" icon="dna">
+    Genome-wide association study results
+  </Card>
+  
+  <Card title="Dot Plot" icon="circle">
+    Gene expression across samples or conditions
+  </Card>
+</CardGroup>
+
+## Financial & Business
+
+Visualization types for financial and business data:
+
+<CardGroup cols={2}>
+  <Card title="Candlestick" icon="candle">
+    OHLC (Open-High-Low-Close) stock price data
+  </Card>
+  
+  <Card title="Waterfall" icon="water">
+    Sequential positive and negative contributions
+  </Card>
+  
+  <Card title="Stacked Area" icon="chart-area">
+    Cumulative time series showing composition over time
+  </Card>
+</CardGroup>
+
+## Specialized & Network Plots
+
+Advanced visualizations for complex relationships:
+
+<CardGroup cols={2}>
+  <Card title="Sankey Diagram" icon="diagram-project">
+    Flow between nodes showing magnitude and direction
+  </Card>
+  
+  <Card title="Chord Diagram" icon="circle-nodes">
+    Circular layout showing relationships between entities
+  </Card>
+  
+  <Card title="UpSet Plot" icon="venn-diagram">
+    Set intersections beyond traditional Venn diagrams
+  </Card>
+  
+  <Card title="Phylogenetic Tree" icon="tree">
+    Evolutionary relationships with customizable branch styles
+  </Card>
+  
+  <Card title="Synteny Plot" icon="dna">
+    Genomic alignments between sequences or chromosomes
+  </Card>
+  
+  <Card title="Brick Plot" icon="cubes">
+    Hierarchical rectangular layouts
+  </Card>
+</CardGroup>
+
+## Supporting Elements
+
+Utility plot types used in combination with others:
+
+- **Band Plot** - Shaded confidence regions for scatter and line plots
+- **Series Plot** - Flexible multi-series plotting with automatic styling
+
+## Choosing a Plot Type
+
+### For Distributions
+- **Single variable**: Histogram, Strip Plot (with center layout)
+- **Compare groups**: Box Plot, Violin Plot, Strip Plot (jittered/swarm)
+- **Density estimation**: Violin Plot, 2D Histogram, Contour
+
+### For Relationships
+- **Two continuous variables**: Scatter Plot, Line Plot
+- **With uncertainty**: Scatter/Line with error bars or bands
+- **Correlation**: Scatter with trend line
+- **Time series**: Line Plot, Stacked Area
+
+### For Categorical Data
+- **Simple counts**: Bar Chart
+- **Multiple series**: Grouped or Stacked Bar
+- **Proportions**: Pie Chart, Stacked Bar
+
+### For Scientific Data
+- **Gene expression**: Volcano Plot, Dot Plot, Heatmap
+- **GWAS results**: Manhattan Plot
+- **Phylogeny**: Phylogenetic Tree
+- **Genomic alignments**: Synteny Plot
+
+### For Networks & Flows
+- **Material flow**: Sankey Diagram
+- **Relationships**: Chord Diagram
+- **Set overlaps**: UpSet Plot
+
+## Common Patterns
+
+### Composing Plots
+
+Many Kuva plot types can be layered on the same axes:
+
+```rust
+let plots = vec![
+    Plot::Box(boxplot),
+    Plot::Strip(strip),  // Overlay points on boxes
+];
+```
+
+### Consistent API
+
+All plot builders follow the same pattern:
+
+1. Create with `::new()`
+2. Add data with `.with_data()` or `.with_group()`
+3. Style with `.with_color()`, `.with_size()`, etc.
+4. Label with `.with_legend()`
+
+### Rendering
+
+Most plots use `render_multiple`:
+
+```rust
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("My Plot")
+    .with_x_label("X")
+    .with_y_label("Y");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+```
+
+Pie charts use `render_pie` for single-plot rendering.

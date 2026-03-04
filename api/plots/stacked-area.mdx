@@ -1,0 +1,281 @@
+---
+title: StackedAreaPlot
+description: API reference for stacked area charts showing cumulative contributions
+---
+
+A stacked area chart places multiple series on top of each other so the reader can see both the individual contribution of each series and the combined total at any x position. It is well suited for showing how a total is composed of parts over a continuous axis — typically time.
+
+## Constructor
+
+### `new()`
+
+Create a stacked area plot with default settings.
+
+**Returns:** `StackedAreaPlot`
+
+**Defaults:**
+- Fill opacity `0.7`
+- Stroke width `1.5`
+- Strokes enabled
+- Absolute (non-normalized) stacking
+- Legend at top-right
+
+```rust
+use kuva::plot::StackedAreaPlot;
+
+let sa = StackedAreaPlot::new();
+```
+
+## Building a Chart
+
+### `with_x()`
+
+Set the x-axis values shared by all series.
+
+<ParamField path="x" type="I: IntoIterator<Item = T>">
+  Iterator of numeric x values. Accepts any type implementing `Into<f64>`.
+</ParamField>
+
+**Returns:** `Self`
+
+Call this before adding any series.
+
+```rust
+let months: Vec<f64> = (1..=12).map(|m| m as f64).collect();
+let sa = StackedAreaPlot::new().with_x(months);
+```
+
+### `with_series()`
+
+Append a new series.
+
+<ParamField path="y" type="I: IntoIterator<Item = T>">
+  Iterator of y values for this series. Must have the same length as the x values set by `with_x`.
+</ParamField>
+
+**Returns:** `Self`
+
+Call `with_color` and `with_legend` immediately after to configure the series that was just added. These methods always operate on the **most recently added** series.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([10.0, 20.0, 15.0])
+    .with_color("steelblue").with_legend("Series A")
+    .with_series([5.0, 8.0, 6.0])
+    .with_color("orange").with_legend("Series B");
+```
+
+### `with_color()`
+
+Set the fill color of the most recently added series.
+
+<ParamField path="color" type="S: Into<String>">
+  CSS color string
+</ParamField>
+
+**Returns:** `Self`
+
+When not called, the series falls back to the built-in default palette: `steelblue`, `orange`, `green`, `red`, `purple`, `brown`, `pink`, `gray` (cycling for more than eight series).
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([10.0, 20.0, 15.0])
+    .with_color("firebrick");
+```
+
+### `with_legend()`
+
+Set the legend label of the most recently added series.
+
+<ParamField path="label" type="S: Into<String>">
+  Legend label text
+</ParamField>
+
+**Returns:** `Self`
+
+Series without a legend label are not shown in the legend box. Omit this call to exclude a series from the legend entirely.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([10.0, 20.0, 15.0])
+    .with_legend("Group A");
+```
+
+## Styling
+
+### `with_fill_opacity()`
+
+Set the fill opacity applied to every band.
+
+<ParamField path="opacity" type="f64">
+  Fill opacity in `[0.0, 1.0]` (default: 0.7)
+</ParamField>
+
+**Returns:** `Self`
+
+Lower values let the background grid lines show through the bands; `1.0` gives solid fills.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_fill_opacity(0.5);
+```
+
+### `with_stroke_width()`
+
+Set the stroke width for the top-edge line on each band.
+
+<ParamField path="width" type="f64">
+  Stroke width in pixels (default: 1.5)
+</ParamField>
+
+**Returns:** `Self`
+
+Has no effect when `with_strokes(false)` is set.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_stroke_width(2.0);
+```
+
+### `with_strokes()`
+
+Show or hide the stroke drawn along the top edge of each band.
+
+<ParamField path="show" type="bool">
+  Whether to show strokes (default: true)
+</ParamField>
+
+**Returns:** `Self`
+
+Setting `false` produces flat, borderless bands — useful when the color contrast between adjacent bands is sufficient to distinguish them without outlines.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_strokes(false);
+```
+
+## Normalization
+
+### `with_normalized()`
+
+Enable 100% percent-stacking.
+
+**Returns:** `Self`
+
+Each column is normalised so all series sum to 100% at every x value. The y-axis is rescaled to span 0–100%. Use this when you want to emphasise proportional composition rather than absolute magnitude.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([30.0, 40.0, 35.0]).with_legend("A")
+    .with_series([20.0, 15.0, 25.0]).with_legend("B")
+    .with_normalized();
+```
+
+## Legend Position
+
+### `with_legend_position()`
+
+Set the corner of the plot area where the legend box is placed.
+
+<ParamField path="pos" type="LegendPosition">
+  Legend position. Options: `TopRight` (default), `TopLeft`, `BottomRight`, `BottomLeft`
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+use kuva::plot::{StackedAreaPlot, LegendPosition};
+
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([10.0, 20.0, 15.0]).with_legend("A")
+    .with_legend_position(LegendPosition::BottomLeft);
+```
+
+## Utility Methods
+
+### `resolve_color()`
+
+Resolve the display color for series `k`, falling back to a built-in palette.
+
+<ParamField path="k" type="usize">
+  Series index
+</ParamField>
+
+**Returns:** `&str`
+
+```rust
+let color = sa.resolve_color(0);  // "steelblue" or custom color
+```
+
+## Complete Example
+
+```rust
+use kuva::plot::StackedAreaPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let months: Vec<f64> = (1..=12).map(|m| m as f64).collect();
+
+let sa = StackedAreaPlot::new()
+    .with_x(months)
+    .with_series([10.0, 12.0, 15.0, 18.0, 14.0, 20.0,
+                  22.0, 19.0, 25.0, 28.0, 24.0, 30.0])
+    .with_color("steelblue").with_legend("Group A")
+    .with_series([ 5.0,  6.0,  8.0,  7.0,  9.0, 10.0,
+                  11.0, 10.0, 12.0, 14.0, 13.0, 15.0])
+    .with_color("orange").with_legend("Group B");
+
+let plots = vec![Plot::StackedArea(sa)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Monthly Counts")
+    .with_x_label("Month")
+    .with_y_label("Count");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("stacked_area.svg", svg).unwrap();
+```
+
+## Public Fields
+
+<ParamField path="x" type="Vec<f64>">
+  X-axis values shared across all series
+</ParamField>
+
+<ParamField path="series" type="Vec<Vec<f64>>">
+  Y values for each series. `series[k][i]` is the value for series `k` at `x[i]`
+</ParamField>
+
+<ParamField path="colors" type="Vec<Option<String>>">
+  Optional explicit fill color for each series (parallel to `series`). `None` falls back to the built-in default color palette
+</ParamField>
+
+<ParamField path="labels" type="Vec<Option<String>>">
+  Optional legend label for each series (parallel to `series`). Series with `None` are omitted from the legend box
+</ParamField>
+
+<ParamField path="fill_opacity" type="f64">
+  Fill opacity applied to every band (default: 0.7)
+</ParamField>
+
+<ParamField path="stroke_width" type="f64">
+  Stroke width for the top-edge line on each band (default: 1.5)
+</ParamField>
+
+<ParamField path="show_strokes" type="bool">
+  Whether to draw a stroke along the top edge of each band (default: true)
+</ParamField>
+
+<ParamField path="normalized" type="bool">
+  When `true`, each column is rescaled to sum to 100%; the y-axis spans 0–100%
+</ParamField>
+
+<ParamField path="legend_position" type="LegendPosition">
+  Corner of the plot area where the legend box is placed (default: `TopRight`)
+</ParamField>

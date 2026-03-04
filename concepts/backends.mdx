@@ -1,0 +1,429 @@
+---
+title: Backend System
+description: Rendering to SVG, PNG, PDF, and terminal output formats
+---
+
+## Overview
+
+Kuva's backend system converts abstract `Scene` primitives into concrete output formats. All backends implement the same interface: they accept a `Scene` and produce format-specific output.
+
+## Available Backends
+
+Kuva provides four backends:
+
+| Backend | Output | Feature Flag | Always Available |
+|---------|--------|--------------|------------------|
+| SVG | Vector graphics | None | ✓ |
+| PNG | Raster image | `png` | |
+| PDF | Vector document | `pdf` | |
+| Terminal | ANSI/Unicode text | None | ✓ |
+
+## SVG Backend
+
+The SVG backend is always available and produces standards-compliant SVG 1.1 output.
+
+### Basic Usage
+
+```rust
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+
+let scene = render_multiple(plots, layout);
+let svg = SvgBackend.render_scene(&scene);
+
+std::fs::write("plot.svg", svg).unwrap();
+```
+
+### Convenience Function
+
+```rust
+use kuva::render_to_svg;
+
+let svg = render_to_svg(plots, layout);
+std::fs::write("plot.svg", svg).unwrap();
+```
+
+### Implementation Details
+
+The SVG backend (src/backend/svg.rs:14-152) directly maps `Primitive` elements to SVG:
+
+- `Circle` → `<circle>`
+- `Text` → `<text>` with text-anchor and optional rotation
+- `Line` → `<line>` with stroke-dasharray for dashed lines
+- `Path` → `<path>` with fill and stroke
+- `Rect` → `<rect>` with optional fill-opacity
+- `GroupStart`/`GroupEnd` → `<g>` with optional transform
+
+The output is a single SVG string with:
+- Inline styles (no external CSS)
+- Optional font-family attribute
+- Background rect when specified
+- `<defs>` block for gradients (used by Sankey plots)
+
+### SVG Features
+
+- **Scalable**: Vector format scales to any size without quality loss
+- **Editable**: Open in Inkscape, Adobe Illustrator, or text editor
+- **Small file size**: Text-based, compresses well
+- **Web-native**: Embed directly in HTML with `<img>` or inline
+- **Accessible**: Screen readers can access text content
+
+## PNG Backend
+
+The PNG backend rasterizes SVG to pixel-based images. Requires the `png` feature.
+
+### Feature Configuration
+
+```toml
+[dependencies]
+kuva = { version = "*", features = ["png"] }
+```
+
+### Basic Usage
+
+```rust
+use kuva::backend::png::PngBackend;
+use kuva::render::render::render_multiple;
+
+let scene = render_multiple(plots, layout);
+let png_bytes = PngBackend::new()
+    .with_scale(2.0)  // 2× resolution (default)
+    .render_scene(&scene)
+    .expect("PNG rendering failed");
+
+std::fs::write("plot.png", png_bytes).unwrap();
+```
+
+### Convenience Function
+
+```rust
+use kuva::render_to_png;
+
+// Scale factor: 1.0 = SVG size, 2.0 = retina/HiDPI
+let png_bytes = render_to_png(plots, layout, 2.0)
+    .expect("PNG rendering failed");
+
+std::fs::write("plot.png", png_bytes).unwrap();
+```
+
+### Scale Factor
+
+The `scale` parameter controls pixel density:
+
+- **1.0**: Matches SVG logical dimensions (600px SVG → 600px PNG)
+- **2.0**: Retina/HiDPI quality (600px SVG → 1200px PNG) - **default**
+- **3.0**: Extra-high resolution for printing
+
+```rust
+let png_1x = PngBackend::new().with_scale(1.0).render_scene(&scene)?;
+let png_2x = PngBackend::new().with_scale(2.0).render_scene(&scene)?;
+let png_3x = PngBackend::new().with_scale(3.0).render_scene(&scene)?;
+```
+
+### Implementation Details
+
+The PNG backend (src/backend/png.rs:4-48) uses the `resvg` crate:
+
+1. Generates SVG string via `SvgBackend`
+2. Parses SVG with `resvg::usvg::Tree`
+3. Loads system fonts via `fontdb`
+4. Rasterizes to `tiny_skia::Pixmap`
+5. Encodes as PNG
+
+Returns `Result<Vec<u8>, String>` - the Vec contains PNG file bytes.
+
+### Error Handling
+
+```rust
+match PngBackend::new().render_scene(&scene) {
+    Ok(bytes) => std::fs::write("plot.png", bytes).unwrap(),
+    Err(e) => eprintln!("PNG rendering failed: {}", e),
+}
+```
+
+Common errors:
+- SVG parsing failure (malformed SVG)
+- Font loading issues
+- Memory allocation failure for very large images
+- Scale factor too large for canvas dimensions
+
+## PDF Backend
+
+The PDF backend produces vector PDF documents. Requires the `pdf` feature.
+
+### Feature Configuration
+
+```toml
+[dependencies]
+kuva = { version = "*", features = ["pdf"] }
+```
+
+### Basic Usage
+
+```rust
+use kuva::backend::pdf::PdfBackend;
+use kuva::render::render::render_multiple;
+
+let scene = render_multiple(plots, layout);
+let pdf_bytes = PdfBackend::new()
+    .render_scene(&scene)
+    .expect("PDF rendering failed");
+
+std::fs::write("plot.pdf", pdf_bytes).unwrap();
+```
+
+### Convenience Function
+
+```rust
+use kuva::render_to_pdf;
+
+let pdf_bytes = render_to_pdf(plots, layout)
+    .expect("PDF rendering failed");
+
+std::fs::write("plot.pdf", pdf_bytes).unwrap();
+```
+
+### Implementation Details
+
+The PDF backend (src/backend/pdf.rs:4-36) uses the `svg2pdf` crate:
+
+1. Generates SVG string via `SvgBackend`
+2. Parses SVG with `svg2pdf::usvg::Tree`
+3. Loads system fonts via `fontdb`
+4. Converts SVG to PDF primitives
+5. Outputs PDF byte stream
+
+Returns `Result<Vec<u8>, String>` - the Vec contains PDF file bytes.
+
+### PDF Features
+
+- **Vector format**: Scales without quality loss (like SVG)
+- **Printable**: Ideal for publications and reports
+- **Self-contained**: Embeds fonts and all resources
+- **Standard format**: Opens in any PDF reader
+
+### Error Handling
+
+```rust
+match PdfBackend::new().render_scene(&scene) {
+    Ok(bytes) => std::fs::write("plot.pdf", bytes).unwrap(),
+    Err(e) => eprintln!("PDF rendering failed: {}", e),
+}
+```
+
+## Terminal Backend
+
+The terminal backend renders plots as ANSI-colored Unicode text using braille dots and box-drawing characters. Always available.
+
+### Basic Usage
+
+```rust
+use kuva::backend::terminal::TerminalBackend;
+use kuva::render::render::render_multiple;
+
+let scene = render_multiple(plots, layout);
+let output = TerminalBackend::new(80, 24)  // cols, rows
+    .render_scene(&scene);
+
+println!("{}", output);
+```
+
+### Dimensions
+
+```rust
+// 80 columns × 24 rows (standard terminal)
+let term = TerminalBackend::new(80, 24);
+
+// Wide terminal (120 columns)
+let term = TerminalBackend::new(120, 40);
+
+// Automatic detection (Unix/Linux)
+let (cols, rows) = termion::terminal_size().unwrap();
+let term = TerminalBackend::new(cols as usize, rows as usize);
+```
+
+### Rendering Layers
+
+The terminal backend (src/backend/terminal.rs:1-21) uses three rendering layers:
+
+1. **Character grid** - Filled `Rect`s (`█`) and `Text` characters
+2. **Box-drawing grid** - Axis and grid lines using Unicode box characters
+3. **Braille layer** - Circles and diagonal lines/paths as dot patterns
+
+Layers are composited front-to-back, allowing axes to show through plot elements.
+
+### Box-Drawing Characters
+
+Horizontal and vertical lines use Unicode box-drawing (U+2500-U+257F):
+
+```text
+┌─┬─┐  ╷ ╵ ╶ ╴
+│ ┼ │  ├ ┤ ┬ ┴
+└─┴─┘  └ ┘ ┌ ┐
+```
+
+Intersections are automatically resolved by accumulating direction bits and mapping to the correct character.
+
+### Braille Dots
+
+Diagonal lines, circles, and paths use Braille patterns (U+2800-U+28FF):
+
+```text
+⠁ ⠂ ⠄ ⡀  (single dots)
+⠉ ⠒ ⠤ ⢄  (lines)
+⣿ ⣾ ⣽ ⣻  (filled)
+```
+
+Each character cell contains 2×4 dots for fine-grained resolution.
+
+### Coordinate Mapping
+
+Terminal coordinates are derived from scene pixel coordinates:
+
+```text
+braille_x = floor(px · C·2 / W)   range [0, C·2)
+braille_y = floor(py · R·4 / H)   range [0, R·4)
+char_col  = floor(px · C   / W)   range [0, C)
+char_row  = floor(py · R   / H)   range [0, R)
+```
+
+Where:
+- `C` = terminal columns
+- `R` = terminal rows
+- `W` = scene width
+- `H` = scene height
+
+### Color Support
+
+The terminal backend uses ANSI 24-bit true color:
+
+```rust
+// Automatically converts CSS colors to RGB
+\x1b[38;2;{r};{g};{b}m  // Foreground
+\x1b[48;2;{r};{g};{b}m  // Background
+```
+
+Colors are derived from:
+- Theme text color for all terminal text
+- Plot colors for braille dots and characters
+
+### Limitations
+
+- **Resolution**: Limited by terminal dimensions and Unicode character set
+- **Color**: Requires terminal with true color support
+- **Text**: Small text may be unreadable at low resolutions
+- **Fonts**: Requires a font with full Unicode coverage
+
+### Best Practices
+
+```rust
+// Optimize layout for terminal
+let layout = Layout::auto_from_plots(&plots)
+    .with_term_rows(24)  // Quantize legend spacing to terminal rows
+    .with_title("Terminal Plot");
+
+let scene = render_multiple(plots, layout);
+let output = TerminalBackend::new(80, 24).render_scene(&scene);
+```
+
+## Multi-Backend Workflow
+
+### Generate All Formats
+
+```rust
+use kuva::*;
+use kuva::backend::{svg::SvgBackend, png::PngBackend, pdf::PdfBackend, terminal::TerminalBackend};
+use kuva::render::render::render_multiple;
+
+// Render once
+let scene = render_multiple(plots, layout);
+
+// SVG
+let svg = SvgBackend.render_scene(&scene);
+std::fs::write("plot.svg", svg).unwrap();
+
+// PNG
+let png = PngBackend::new().with_scale(2.0).render_scene(&scene).unwrap();
+std::fs::write("plot.png", png).unwrap();
+
+// PDF
+let pdf = PdfBackend::new().render_scene(&scene).unwrap();
+std::fs::write("plot.pdf", pdf).unwrap();
+
+// Terminal
+let term = TerminalBackend::new(80, 24).render_scene(&scene);
+println!("\n{}\n", term);
+```
+
+### Conditional Compilation
+
+```rust
+#[cfg(feature = "png")]
+{
+    use kuva::backend::png::PngBackend;
+    let png = PngBackend::new().render_scene(&scene).unwrap();
+    std::fs::write("plot.png", png).unwrap();
+}
+
+#[cfg(feature = "pdf")]
+{
+    use kuva::backend::pdf::PdfBackend;
+    let pdf = PdfBackend::new().render_scene(&scene).unwrap();
+    std::fs::write("plot.pdf", pdf).unwrap();
+}
+```
+
+## Feature Flags
+
+Enable backends in `Cargo.toml`:
+
+```toml
+# Individual backends
+[dependencies]
+kuva = { version = "*", features = ["png"] }
+kuva = { version = "*", features = ["pdf"] }
+
+# Multiple backends
+kuva = { version = "*", features = ["png", "pdf"] }
+
+# All backends (convenience)
+kuva = { version = "*", features = ["full"] }
+```
+
+The `full` feature enables both `png` and `pdf`.
+
+## Performance Considerations
+
+### SVG
+- Fast: Direct string generation
+- Output size: ~50-500 KB for typical plots
+
+### PNG
+- Slower: SVG parsing + rasterization
+- Output size: 100 KB - 2 MB depending on scale and complexity
+- Memory: Requires allocating full pixmap (width × height × 4 bytes)
+
+### PDF
+- Moderate: SVG parsing + PDF primitive conversion
+- Output size: Similar to SVG (50-500 KB)
+- May embed fonts (adds ~100 KB per font)
+
+### Terminal
+- Fast: Direct character/color generation
+- Output size: Tiny (~5-20 KB for 80×24)
+- No file I/O overhead
+
+## Source Code References
+
+- SVG backend: `src/backend/svg.rs`
+- PNG backend: `src/backend/png.rs`
+- PDF backend: `src/backend/pdf.rs`
+- Terminal backend: `src/backend/terminal.rs`
+- Convenience functions: `src/lib.rs:59-115`
+
+## Next Steps
+
+- [Architecture Overview](/concepts/architecture) - Understanding the rendering pipeline
+- [Theme System](/concepts/themes-palettes) - Styling for different backends
+- [Layout System](/concepts/layouts) - Optimizing for backend constraints

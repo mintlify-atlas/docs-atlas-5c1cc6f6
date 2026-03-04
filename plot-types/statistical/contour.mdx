@@ -1,0 +1,282 @@
+---
+title: ContourPlot
+description: Iso-lines or filled bands for visualizing continuous 2D scalar fields
+---
+
+A contour plot draws iso-lines (or filled iso-bands) on a 2D scalar field, connecting all points that share the same z value. It is ideal for visualizing continuous surfaces such as density functions, spatial gradients, elevation, or any field that varies smoothly over an x–y plane.
+
+## When to Use
+
+- **Density functions**: Visualize Gaussian peaks, kernel density estimates
+- **Spatial expression**: Show gene expression gradients across tissue
+- **Topographic maps**: Display elevation contours
+- **Probability distributions**: Visualize bivariate distributions
+- **Simulation results**: Show temperature, pressure, or concentration fields
+- **Any continuous 2D field**: When data varies smoothly across space
+
+## Basic Example
+
+```rust
+use kuva::plot::{ContourPlot, ColorMap};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+// Build a 40×40 Gaussian grid
+let n = 40_usize;
+let coords: Vec<f64> = (0..n)
+    .map(|i| -3.0 + i as f64 / (n - 1) as f64 * 6.0)
+    .collect();
+let z: Vec<Vec<f64>> = coords.iter()
+    .map(|&y| coords.iter()
+        .map(|&x| (-(x * x + y * y) / 2.0).exp())
+        .collect())
+    .collect();
+
+let cp = ContourPlot::new()
+    .with_grid(z, coords.clone(), coords)
+    .with_n_levels(8)
+    .with_filled()
+    .with_legend("Density");
+
+let plots = vec![Plot::Contour(cp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Gaussian Density")
+    .with_x_label("x")
+    .with_y_label("y");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("contour.svg", svg).unwrap();
+```
+
+## Input Modes
+
+### `with_grid(z, x_coords, y_coords)`
+
+Supply data as a pre-computed regular grid.
+
+- **z** — `Vec<Vec<f64>>` where `z[row][col]` is the scalar value at `(x_coords[col], y_coords[row])`
+- **x_coords** / **y_coords** — coordinate vectors defining grid positions
+
+```rust
+let coords: Vec<f64> = (-2..=2).map(|i| i as f64).collect();
+let z: Vec<Vec<f64>> = coords.iter()
+    .map(|&y| coords.iter()
+        .map(|&x| (-(x * x + y * y) / 2.0).exp())
+        .collect())
+    .collect();
+
+let cp = ContourPlot::new()
+    .with_grid(z, coords.clone(), coords);
+```
+
+Use this when data is already gridded (e.g. from simulation output).
+
+### `with_points(pts: impl IntoIterator<Item = (f64, f64, f64)>)`
+
+Supply data as scattered (x, y, z) points. Values are interpolated onto an internal 50×50 grid using **inverse-distance weighting (IDW)**.
+
+```rust
+let pts: Vec<(f64, f64, f64)> = (-5..=5)
+    .flat_map(|i| (-5..=5).map(move |j| {
+        let (x, y) = (i as f64, j as f64);
+        let z = (-(x * x + y * y) / 2.0).exp();
+        (x, y, z)
+    }))
+    .collect();
+
+let cp = ContourPlot::new()
+    .with_points(pts)
+    .with_n_levels(6);
+```
+
+Use this for spatial data that does not come pre-gridded.
+
+## Key Methods
+
+### Iso-levels
+
+#### `with_n_levels(n: usize)`
+
+Set the number of evenly spaced iso-levels (default `8`). Levels are distributed within the z data range, excluding min and max.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_n_levels(10);
+```
+
+#### `with_levels(levels: &[f64])`
+
+Set explicit iso-level values. Overrides `n_levels`.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_levels(&[0.1, 0.25, 0.5, 0.75, 0.9]);
+```
+
+Use this when iso-lines should correspond to specific thresholds (e.g. expression cutoffs).
+
+### Line vs Filled Mode
+
+#### `with_filled()`
+
+Enable filled mode: fill the area between adjacent iso-levels with colormap colors.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_filled()
+    .with_legend("Density");
+```
+
+Calling `with_legend` in filled mode also renders a colorbar.
+
+#### Line mode (default)
+
+By default, only iso-lines are drawn. Use `with_line_color` and `with_line_width` to customize.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_line_color("steelblue")
+    .with_line_width(1.2);
+```
+
+### Styling
+
+#### `with_colormap(map: ColorMap)`
+
+Set the color map for iso-line or filled-band colors (default `Viridis`).
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_filled()
+    .with_colormap(ColorMap::Inferno);
+```
+
+#### `with_line_color(color: impl Into<String>)`
+
+Set a fixed color for all iso-lines. Has no effect on filled bands.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_line_color("darkgreen")
+    .with_line_width(1.5);
+```
+
+#### `with_line_width(w: f64)`
+
+Set the iso-line stroke width in pixels (default `1.0`).
+
+#### `with_legend(label: impl Into<String>)`
+
+In **filled** mode, triggers a colorbar. In **line** mode, adds a line entry to the legend box.
+
+## Examples
+
+### Iso-line Contours — Gaussian Peak
+
+```rust
+let (z, xs, ys) = gaussian_grid(60, 60, (-3.0, 3.0), (-3.0, 3.0), |x, y| {
+    (-(x * x + y * y) / 2.0).exp()
+});
+
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_n_levels(10)
+    .with_line_color("steelblue")
+    .with_line_width(1.2);
+
+let plots = vec![Plot::Contour(cp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Iso-line Contours — Gaussian Peak")
+    .with_x_label("x")
+    .with_y_label("y");
+```
+
+Clean navy lines on white background.
+
+### Filled Contours — Bimodal Surface
+
+```rust
+let (z, xs, ys) = gaussian_grid(60, 60, (-4.0, 4.0), (-4.0, 4.0), |x, y| {
+    let peak1 = (- ((x - 1.2) * (x - 1.2) + (y - 1.0) * (y - 1.0)) / 1.5).exp();
+    let peak2 = 0.6 * (- ((x + 1.5) * (x + 1.5) + (y + 1.2) * (y + 1.2)) / 1.2).exp();
+    peak1 + peak2
+});
+
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_n_levels(9)
+    .with_filled()
+    .with_legend("Density");
+
+let plots = vec![Plot::Contour(cp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Filled Contours — Bimodal Surface")
+    .with_x_label("x")
+    .with_y_label("y");
+```
+
+Filled bands reveal two overlapping Gaussian peaks.
+
+### Scattered Input — IDW Interpolation
+
+```rust
+let pts: Vec<(f64, f64, f64)> = (-5..=5)
+    .flat_map(|i| (-5..=5).map(move |j| {
+        let x = i as f64;
+        let y = j as f64;
+        let v = (-((x - 1.5) * (x - 1.5) + (y - 1.5) * (y - 1.5)) / 4.0).exp()
+            + 0.7 * (-((x + 2.0) * (x + 2.0) + (y + 1.5) * (y + 1.5)) / 3.0).exp();
+        (x, y, v)
+    }))
+    .collect();
+
+let cp = ContourPlot::new()
+    .with_points(pts)
+    .with_n_levels(8)
+    .with_filled()
+    .with_colormap(ColorMap::Inferno)
+    .with_legend("Value");
+
+let plots = vec![Plot::Contour(cp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Scattered Input — IDW Interpolation")
+    .with_x_label("x")
+    .with_y_label("y");
+```
+
+Scattered (x, y, z) points interpolated to a regular grid before contouring.
+
+### Explicit Iso-levels
+
+```rust
+let (z, xs, ys) = gaussian_grid(60, 60, (-3.0, 3.0), (-3.0, 3.0), |x, y| {
+    (-(x * x + y * y) / 2.0).exp()
+});
+
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_levels(&[0.1, 0.25, 0.5, 0.75, 0.9])
+    .with_line_color("darkgreen")
+    .with_line_width(1.5);
+
+let plots = vec![Plot::Contour(cp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Explicit Iso-levels: 0.1, 0.25, 0.5, 0.75, 0.9")
+    .with_x_label("x")
+    .with_y_label("y");
+```
+
+Iso-lines at meaningful fractions of the peak value.
+
+## See Also
+
+- [Histogram2D](/plot-types/statistical/histogram2d) — For binned density visualization
+- [Heatmap](/plot-types/statistical/heatmap) — For discrete categorical grids

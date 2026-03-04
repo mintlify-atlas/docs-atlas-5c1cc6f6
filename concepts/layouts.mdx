@@ -1,0 +1,339 @@
+---
+title: Layout System
+description: Configuring axes, ticks, labels, and visual properties
+---
+
+## Overview
+
+The `Layout` struct controls axis ranges, tick formatting, labels, themes, and all visual properties except plot-specific colors and sizes.
+
+## Creating Layouts
+
+### Automatic Layout
+
+The recommended approach is `Layout::auto_from_plots()`, which inspects plot types and data:
+
+```rust
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plots: Vec<Plot> = vec![scatter.into(), line.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("My Plot")
+    .with_x_label("Time (s)")
+    .with_y_label("Value");
+```
+
+`auto_from_plots()` automatically computes (src/render/layout.rs:213-544):
+
+- **Axis ranges** by examining plot bounds with smart padding
+- **Tick count** based on plot dimensions
+- **Categorical labels** for bar, box, violin plots
+- **Legend presence** when plots have `.with_legend()`
+- **Colorbar presence** for heatmaps and color-encoded plots
+- **Grid visibility** (disabled for Manhattan, UpSet plots)
+
+### Manual Layout
+
+For full control, construct a layout with explicit ranges:
+
+```rust
+let layout = Layout::new(
+    (0.0, 10.0),  // x_range
+    (0.0, 100.0)  // y_range
+)
+.with_title("Custom Layout")
+.with_x_label("X Axis")
+.with_y_label("Y Axis");
+```
+
+## Axis Configuration
+
+### Axis Ranges
+
+```rust
+// Set ranges explicitly
+let layout = Layout::new((0.0, 10.0), (0.0, 100.0));
+
+// Modify ranges after creation
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_range(0.0, 10.0)
+    .with_y_range(0.0, 100.0);
+```
+
+### Log Scale
+
+```rust
+// Log scale on both axes
+let layout = Layout::auto_from_plots(&plots)
+    .with_log_scale();
+
+// Log scale on individual axes
+let layout = Layout::auto_from_plots(&plots)
+    .with_log_x()
+    .with_log_y();
+```
+
+Log scale uses base-10 logarithm and automatically adjusts tick positions to powers of 10.
+
+### Tick Configuration
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_ticks(8)  // Number of tick marks (default: 5)
+    .with_show_grid(false);  // Disable grid lines
+```
+
+## Tick Formatting
+
+The `TickFormat` enum (src/render/layout.rs:10-50) controls how axis values are displayed:
+
+### Built-in Formats
+
+```rust
+use kuva::render::layout::TickFormat;
+
+// Automatic (default) - integers as "5", minimal decimals, sci notation for extremes
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_tick_format(TickFormat::Auto);
+
+// Fixed decimal places
+let layout = Layout::auto_from_plots(&plots)
+    .with_y_tick_format(TickFormat::Fixed(2));  // "3.14"
+
+// Integer only
+let layout = Layout::auto_from_plots(&plots)
+    .with_y_tick_format(TickFormat::Integer);  // "5"
+
+// Scientific notation
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_tick_format(TickFormat::Sci);  // "1.23e4"
+
+// Percentage
+let layout = Layout::auto_from_plots(&plots)
+    .with_y_tick_format(TickFormat::Percent)  // 0.45 → "45.0%"
+    .with_clamp_axis();  // Stop at 100% instead of 110%
+```
+
+### Custom Formatters
+
+```rust
+use std::sync::Arc;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_tick_format(TickFormat::Custom(Arc::new(|v| {
+        format!("${:.0}", v)
+    })));
+```
+
+### Per-Axis Formatting
+
+```rust
+// Format both axes the same
+let layout = Layout::auto_from_plots(&plots)
+    .with_tick_format(TickFormat::Fixed(2));
+
+// Format axes independently
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_tick_format(TickFormat::Auto)
+    .with_y_tick_format(TickFormat::Percent);
+```
+
+## Categorical Axes
+
+For bar, box, violin plots, `auto_from_plots()` automatically detects categorical axes:
+
+```rust
+use kuva::plot::bar::{BarPlot, BarGroup, Bar};
+
+let bar = BarPlot::new()
+    .with_groups(vec![
+        BarGroup::new("Q1", vec![Bar::new("Product A", 100.0)]),
+        BarGroup::new("Q2", vec![Bar::new("Product A", 120.0)]),
+    ]);
+
+let layout = Layout::auto_from_plots(&vec![bar.into()]);
+// X-axis labels are automatically set to ["Q1", "Q2"]
+```
+
+Manually override categorical labels:
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_categories(vec!["Category A".to_string(), "Category B".to_string()]);
+```
+
+## Labels and Titles
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Plot Title")
+    .with_x_label("X Axis Label")
+    .with_y_label("Y Axis Label");
+```
+
+### Twin Y-Axes
+
+For plots with two Y-axes:
+
+```rust
+let layout = Layout::auto_from_twin_y_plots(&primary_plots, &secondary_plots)
+    .with_y_label("Primary Y")
+    .with_y2_label("Secondary Y");
+
+// Or manually
+let layout = Layout::auto_from_plots(&primary_plots)
+    .with_y2_auto(&secondary_plots)  // Compute y2 range
+    .with_y2_label("Secondary Y")
+    .with_y2_tick_format(TickFormat::Percent)
+    .with_log_y2();  // Log scale on secondary Y
+```
+
+## Dimensions
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_width(800.0)
+    .with_height(600.0);
+```
+
+If not specified, defaults to 600×450 plot area plus computed margins for axes and labels.
+
+## Legend and Colorbar
+
+### Legend
+
+```rust
+use kuva::plot::legend::LegendPosition;
+
+// Position is auto-detected, or override:
+let layout = Layout::auto_from_plots(&plots)
+    .with_legend_position(LegendPosition::TopRight);  // or TopLeft, BottomRight, BottomLeft
+```
+
+Legend appearance is controlled by the theme (see [Theme System](/concepts/themes-palettes)).
+
+### Colorbar
+
+`auto_from_plots()` automatically adds a colorbar for plots with continuous color mappings (Heatmap, Histogram2D, filled Contour, color-encoded DotPlot).
+
+Colorbar width is fixed at 85 pixels (20px bar + 50px labels + 15px gap) in the right margin.
+
+## Annotations
+
+### Reference Lines
+
+```rust
+use kuva::render::annotations::ReferenceLine;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_reference_line(ReferenceLine::horizontal(5.0, "red", "Threshold"))
+    .with_reference_line(ReferenceLine::vertical(3.0, "blue", "Cutoff"));
+```
+
+### Shaded Regions
+
+```rust
+use kuva::render::annotations::ShadedRegion;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_shaded_region(ShadedRegion::vertical(2.0, 4.0, "lightgray"));
+```
+
+### Text Annotations
+
+```rust
+use kuva::render::annotations::TextAnnotation;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_annotation(TextAnnotation::new(
+        3.0, 5.0,  // x, y in data coordinates
+        "Important point"
+    ));
+```
+
+## Font Configuration
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_font_family("Arial")
+    .with_title_size(20)
+    .with_label_size(14)
+    .with_tick_size(10)
+    .with_body_size(12);  // For legend and annotations
+```
+
+## Themes and Palettes
+
+```rust
+use kuva::render::theme::Theme;
+use kuva::render::palette::Palette;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark())
+    .with_palette(Palette::wong());  // Colorblind-safe palette
+```
+
+See [Theme System](/concepts/themes-palettes) for complete details.
+
+## Advanced Features
+
+### DateTime Axes
+
+```rust
+use kuva::render::datetime::{DateTimeAxis, DateUnit};
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_datetime(DateTimeAxis::new(DateUnit::Day));
+```
+
+### Rotated Tick Labels
+
+```rust
+// Rotate X-axis labels by 45 degrees (useful for long categorical labels)
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_tick_rotate(-45.0);
+```
+
+### Axis Clamping
+
+```rust
+// Stop axis exactly at data boundary (no breathing room)
+let layout = Layout::auto_from_plots(&plots)
+    .with_clamp_axis();  // Both axes
+
+// Or just Y-axis (auto-enabled for normalized histograms)
+let layout = Layout::auto_from_plots(&plots)
+    .with_clamp_y_axis();
+```
+
+### Terminal Backend Optimization
+
+```rust
+// Quantize legend spacing to terminal rows
+let layout = Layout::auto_from_plots(&plots)
+    .with_term_rows(24);  // Number of terminal rows
+```
+
+## ComputedLayout
+
+The `ComputedLayout` struct (src/render/layout.rs:785-1030) is derived from `Layout` during rendering and includes:
+
+- Final computed dimensions with margins
+- Adjusted axis ranges (after nice rounding)
+- Coordinate mapping functions (`map_x`, `map_y`, `map_y2`)
+
+You typically don't interact with `ComputedLayout` directly; it's used internally by the rendering pipeline.
+
+## Source Code References
+
+- Layout struct: `src/render/layout.rs:88-152`
+- Auto-detection logic: `src/render/layout.rs:213-544`
+- TickFormat enum: `src/render/layout.rs:10-50`
+- ComputedLayout: `src/render/layout.rs:785-1030`
+
+## Next Steps
+
+- [Theme System](/concepts/themes-palettes) - Visual styling
+- [Architecture Overview](/concepts/architecture) - Rendering pipeline
+- [Annotations Guide](/guides/annotations) - Advanced annotation techniques

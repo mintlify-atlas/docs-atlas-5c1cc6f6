@@ -1,0 +1,209 @@
+---
+title: PiePlot
+description: API reference for PiePlot - pie and donut charts with flexible labeling
+---
+
+## PiePlot
+
+Builder for creating pie or donut charts. Each slice has its own explicit color. Slice labels can be positioned automatically, forced inside or outside, or suppressed entirely in favor of a legend. Percentage values can be appended to labels with `with_percent()`.
+
+Render with `render_pie` for most cases, or `render_multiple` when a legend is attached.
+
+### Constructor
+
+<ParamField path="PiePlot::new()" type="Self">
+  Create a pie chart with default settings.
+  
+  **Defaults:**
+  - Full pie (`inner_radius = 0.0`)
+  - Auto label positioning
+  - No percentages
+  - No legend
+  - `min_label_fraction = 0.05` (5%)
+</ParamField>
+
+### Data Methods
+
+<ParamField path="with_slice" type="Self">
+  ```rust
+  pub fn with_slice<L, V, C>(self, label: L, value: V, color: C) -> Self
+  where
+      L: Into<String>,
+      V: Into<f64>,
+      C: Into<String>
+  ```
+  
+  Add a slice with a label, value, and fill color. Slices are drawn clockwise in the order they are added, starting from the top (12 o'clock). The value is proportional — only the ratio between values matters, not their absolute magnitude.
+  
+  **Example:**
+  ```rust
+  let pie = PiePlot::new()
+      .with_slice("A", 60.0, "steelblue")
+      .with_slice("B", 40.0, "tomato");
+  ```
+</ParamField>
+
+### Styling Methods
+
+<ParamField path="with_inner_radius" type="Self">
+  ```rust
+  pub fn with_inner_radius(self, r: f64) -> Self
+  ```
+  
+  Set the inner radius in pixels to create a donut chart. A value of `0.0` (the default) renders a solid pie. Any positive value cuts a hollow centre. Typical values are in the range `40.0`–`80.0` depending on the canvas size.
+  
+  **Example:**
+  ```rust
+  let donut = PiePlot::new()
+      .with_slice("A", 60.0, "steelblue")
+      .with_slice("B", 40.0, "tomato")
+      .with_inner_radius(60.0);
+  ```
+</ParamField>
+
+### Label Methods
+
+<ParamField path="with_label_position" type="Self">
+  ```rust
+  pub fn with_label_position(self, pos: PieLabelPosition) -> Self
+  ```
+  
+  Set the label placement strategy. See [`PieLabelPosition`](#pielabelposition) for the available options. The default is `Auto`.
+</ParamField>
+
+<ParamField path="with_percent" type="Self">
+  ```rust
+  pub fn with_percent(self) -> Self
+  ```
+  
+  Append the percentage of the total to each slice label. The percentage is computed from the slice values and formatted to one decimal place (e.g. `"Rust 40.0%"`).
+</ParamField>
+
+<ParamField path="with_min_label_fraction" type="Self">
+  ```rust
+  pub fn with_min_label_fraction(self, fraction: f64) -> Self
+  ```
+  
+  Set the minimum slice fraction below which no label is drawn. Slices whose value is less than `fraction` of the total are silently skipped. The default is `0.05` (5%). Set to `0.0` to label every slice regardless of size.
+  
+  **Example:**
+  ```rust
+  // Label all slices, even tiny ones
+  let pie = PiePlot::new()
+      .with_slice("Big",  90.0, "steelblue")
+      .with_slice("Tiny",  1.0, "tomato")
+      .with_min_label_fraction(0.0);
+  ```
+</ParamField>
+
+### Legend Methods
+
+<ParamField path="with_legend" type="Self">
+  ```rust
+  pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+  ```
+  
+  Attach a legend to the pie chart. When a legend label is set, `render_multiple` adds a per-slice legend entry (colored square + slice label) in the right margin. Combine with `with_label_position(PieLabelPosition::None)` to use the legend as the sole means of identification.
+  
+  **Example:**
+  ```rust
+  let pie = PiePlot::new()
+      .with_slice("A", 60.0, "steelblue")
+      .with_slice("B", 40.0, "tomato")
+      .with_legend("Category")
+      .with_label_position(PieLabelPosition::None);
+  ```
+</ParamField>
+
+## Enums & Types
+
+### PieLabelPosition
+
+Controls where slice labels are placed relative to each slice. Default is `Auto`.
+
+- `Inside` - Labels centered between the inner and outer radius (or at mid-radius for a full pie). Works well when all slices are large enough to fit text.
+- `Outside` - Labels placed outside the pie with leader lines connecting them to their slice. Small slices are automatically spaced to avoid label overlap.
+- `Auto` - Inside for large slices; outside with a leader line for small ones. This is the default. The threshold is controlled by `with_min_label_fraction`.
+- `None` - No slice labels. Combine with `with_legend` to identify slices via a legend instead.
+
+### PieSlice
+
+A single slice of a pie chart.
+
+**Fields:**
+- `label: String` - Slice label
+- `value: f64` - Slice value (proportional)
+- `color: String` - Fill color (CSS color string)
+
+## Complete Example
+
+### Simple Pie Chart
+
+```rust
+use kuva::plot::{PiePlot, PieLabelPosition};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_pie;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let pie = PiePlot::new()
+    .with_slice("Rust",   40.0, "steelblue")
+    .with_slice("Python", 30.0, "tomato")
+    .with_slice("R",      20.0, "seagreen")
+    .with_slice("Other",  10.0, "gold")
+    .with_percent();
+
+let plots = vec![Plot::Pie(pie.clone())];
+let layout = Layout::auto_from_plots(&plots).with_title("Language usage");
+
+let svg = SvgBackend.render_scene(&render_pie(&pie, &layout));
+std::fs::write("pie.svg", svg).unwrap();
+```
+
+### Donut Chart
+
+```rust
+use kuva::plot::{PiePlot, PieLabelPosition};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_pie;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let donut = PiePlot::new()
+    .with_slice("Product A", 45.0, "steelblue")
+    .with_slice("Product B", 35.0, "crimson")
+    .with_slice("Product C", 20.0, "seagreen")
+    .with_inner_radius(60.0)
+    .with_percent();
+
+let plots = vec![Plot::Pie(donut.clone())];
+let layout = Layout::auto_from_plots(&plots).with_title("Market Share");
+
+let svg = SvgBackend.render_scene(&render_pie(&donut, &layout));
+std::fs::write("donut.svg", svg).unwrap();
+```
+
+### Pie Chart with Legend Only
+
+```rust
+use kuva::plot::{PiePlot, PieLabelPosition};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let pie = PiePlot::new()
+    .with_slice("Category A", 35.0, "steelblue")
+    .with_slice("Category B", 25.0, "crimson")
+    .with_slice("Category C", 20.0, "seagreen")
+    .with_slice("Category D", 15.0, "gold")
+    .with_slice("Category E", 5.0, "purple")
+    .with_legend("Categories")
+    .with_label_position(PieLabelPosition::None);
+
+let plots = vec![Plot::Pie(pie)];
+let layout = Layout::auto_from_plots(&plots).with_title("Distribution by Category");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("pie_legend.svg", svg).unwrap();
+```

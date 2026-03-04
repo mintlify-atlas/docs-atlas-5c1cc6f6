@@ -1,0 +1,284 @@
+---
+title: SyntenyPlot
+description: Collinear block visualization for genome comparisons with ribbons connecting sequence bars
+---
+
+A synteny plot displays collinear blocks between sequences as horizontal bars connected by ribbon polygons. Used for genome comparisons, showing conserved regions (forward) and inversions (crossed ribbons).
+
+## Constructor
+
+### new
+
+Create a synteny plot with default settings.
+
+```rust
+use kuva::plot::SyntenyPlot;
+
+let synteny = SyntenyPlot::new();
+```
+
+**Returns:** `SyntenyPlot`
+
+**Defaults:**
+- Bar height: 18.0 pixels
+- Block opacity: 0.65
+- Shared scale: false (per-sequence scale)
+- No legend
+
+## Sequence Configuration
+
+### with_sequences
+
+Add sequences from `(label, length)` pairs.
+
+```rust
+pub fn with_sequences<S, L>(self, seqs: impl IntoIterator<Item = (S, L)>) -> Self
+where
+    S: Into<String>,
+    L: Into<f64>,
+```
+
+<ParamField path="seqs" type="impl IntoIterator<Item = (String, f64)>">
+  Iterator of `(sequence_label, length)` pairs
+</ParamField>
+
+Sequences are rendered top to bottom in the order provided.
+
+**Example:**
+```rust
+let synteny = SyntenyPlot::new()
+    .with_sequences(vec![
+        ("chr1", 100_000.0),
+        ("chr2",  95_000.0),
+        ("chr3",  85_000.0),
+    ]);
+```
+
+---
+
+### with_sequence_colors
+
+Override bar colors (parallel to sequences).
+
+```rust
+pub fn with_sequence_colors<C: Into<String>>(self, colors: impl IntoIterator<Item = C>) -> Self
+```
+
+<ParamField path="colors" type="impl IntoIterator<Item = String>">
+  CSS color strings (one per sequence)
+</ParamField>
+
+**Example:**
+```rust
+let synteny = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_sequence_colors(["steelblue", "firebrick", "seagreen"]);
+```
+
+## Block Methods
+
+### with_block
+
+Add a forward (non-inverted) collinear block.
+
+```rust
+pub fn with_block(self, seq1: usize, start1: f64, end1: f64,
+                  seq2: usize, start2: f64, end2: f64) -> Self
+```
+
+<ParamField path="seq1" type="usize">
+  Index of first sequence
+</ParamField>
+
+<ParamField path="start1" type="f64">
+  Start coordinate on first sequence
+</ParamField>
+
+<ParamField path="end1" type="f64">
+  End coordinate on first sequence
+</ParamField>
+
+<ParamField path="seq2" type="usize">
+  Index of second sequence
+</ParamField>
+
+<ParamField path="start2" type="f64">
+  Start coordinate on second sequence
+</ParamField>
+
+<ParamField path="end2" type="f64">
+  End coordinate on second sequence
+</ParamField>
+
+**Example:**
+```rust
+let synteny = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_block(0, 1000.0, 5000.0, 1, 2000.0, 6000.0);  // seq0 to seq1
+```
+
+---
+
+### with_inv_block
+
+Add an inverted (crossed) collinear block.
+
+```rust
+pub fn with_inv_block(self, seq1: usize, start1: f64, end1: f64,
+                      seq2: usize, start2: f64, end2: f64) -> Self
+```
+
+Parameters are identical to `with_block`, but the ribbon is drawn crossed to indicate a strand inversion.
+
+**Example:**
+```rust
+let synteny = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_inv_block(0, 10000.0, 15000.0, 1, 20000.0, 25000.0);  // inverted block
+```
+
+---
+
+### with_colored_block
+
+Add a forward block with an explicit color.
+
+```rust
+pub fn with_colored_block<C: Into<String>>(
+    self, seq1: usize, start1: f64, end1: f64,
+    seq2: usize, start2: f64, end2: f64, color: C,
+) -> Self
+```
+
+<ParamField path="color" type="String">
+  CSS color string for this block
+</ParamField>
+
+**Example:**
+```rust
+let synteny = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_colored_block(0, 1000.0, 5000.0, 1, 2000.0, 6000.0, "steelblue");
+```
+
+---
+
+### with_colored_inv_block
+
+Add an inverted block with an explicit color.
+
+```rust
+pub fn with_colored_inv_block<C: Into<String>>(
+    self, seq1: usize, start1: f64, end1: f64,
+    seq2: usize, start2: f64, end2: f64, color: C,
+) -> Self
+```
+
+<ParamField path="color" type="String">
+  CSS color string for this block
+</ParamField>
+
+---
+
+### with_blocks
+
+Batch-add pre-built blocks.
+
+```rust
+pub fn with_blocks(self, blocks: impl IntoIterator<Item = SyntenyBlock>) -> Self
+```
+
+<ParamField path="blocks" type="impl IntoIterator<Item = SyntenyBlock>">
+  Iterator of `SyntenyBlock` structs
+</ParamField>
+
+## Display Configuration
+
+### with_bar_height
+
+Set the pixel height of each sequence bar.
+
+```rust
+pub fn with_bar_height(self, h: f64) -> Self
+```
+
+<ParamField path="h" type="f64">
+  Bar height in pixels (default: `18.0`)
+</ParamField>
+
+---
+
+### with_opacity
+
+Set the ribbon fill opacity.
+
+```rust
+pub fn with_opacity(self, opacity: f64) -> Self
+```
+
+<ParamField path="opacity" type="f64">
+  Opacity from `0.0` to `1.0` (default: `0.65`)
+</ParamField>
+
+---
+
+### with_shared_scale
+
+Opt in to a shared coordinate ruler.
+
+```rust
+pub fn with_shared_scale(self) -> Self
+```
+
+By default, each sequence bar fills the full width (per-sequence scale). Call this to use a shared ruler where shorter sequences draw narrower bars.
+
+**Example:**
+```rust
+let synteny = SyntenyPlot::new()
+    .with_sequences(seqs)
+    .with_shared_scale();  // all sequences share the same coordinate ruler
+```
+
+## Legend
+
+### with_legend
+
+Enable a legend.
+
+```rust
+pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+```
+
+<ParamField path="label" type="String">
+  Legend label
+</ParamField>
+
+## Full Example
+
+```rust
+use kuva::plot::SyntenyPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let synteny = SyntenyPlot::new()
+    .with_sequences(vec![
+        ("chr1", 100_000.0),
+        ("chr2",  95_000.0),
+        ("chr3",  85_000.0),
+    ])
+    .with_sequence_colors(["steelblue", "firebrick", "seagreen"])
+    .with_block(0, 10_000.0, 30_000.0, 1, 15_000.0, 35_000.0)
+    .with_block(0, 50_000.0, 70_000.0, 1, 55_000.0, 75_000.0)
+    .with_inv_block(1, 20_000.0, 40_000.0, 2, 10_000.0, 30_000.0)  // inverted
+    .with_opacity(0.7)
+    .with_legend("Collinear blocks");
+
+let plots = vec![Plot::Synteny(synteny)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Genome Synteny");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("synteny.svg", svg).unwrap();
+```

@@ -1,0 +1,114 @@
+---
+title: PngBackend
+description: PNG backend for rendering scenes to raster images
+---
+
+## Overview
+
+`PngBackend` renders a `Scene` to PNG bytes. This backend requires the `png` feature flag and uses `resvg` to rasterize SVG scenes.
+
+<Warning>
+This backend requires the `png` feature:
+
+```toml
+[dependencies]
+kuva = { version = "0.1", features = ["png"] }
+```
+</Warning>
+
+## Usage
+
+```rust
+use kuva::backend::png::PngBackend;
+use kuva::render::render::Scene;
+
+let scene = /* your Scene */;
+let png_bytes = PngBackend::new()
+    .with_scale(2.0)
+    .render_scene(&scene)
+    .expect("Failed to render PNG");
+
+std::fs::write("plot.png", png_bytes).unwrap();
+```
+
+## Constructor
+
+### `new`
+
+Creates a new PNG backend with default scale factor (2.0).
+
+```rust
+let backend = PngBackend::new();
+```
+
+**Returns:** `PngBackend` with `scale = 2.0`
+
+### `default`
+
+Alias for `new()`.
+
+## Methods
+
+### `with_scale`
+
+Sets the pixel density multiplier.
+
+<ParamField path="scale" type="f32" required>
+  Pixel density multiplier:
+  - `1.0` = same logical pixel dimensions as SVG
+  - `2.0` = retina/HiDPI quality (default)
+  - Higher values produce larger, higher-resolution images
+</ParamField>
+
+**Returns:** `Self` for method chaining
+
+**Example:**
+
+```rust
+let backend = PngBackend::new()
+    .with_scale(3.0);  // 3x resolution
+```
+
+### `render_scene`
+
+Renders a `Scene` to PNG bytes.
+
+<ParamField path="scene" type="&Scene" required>
+  The scene to render
+</ParamField>
+
+**Returns:** `Result<Vec<u8>, String>`
+- `Ok(bytes)` - PNG file data ready to write
+- `Err(msg)` - Error message if rendering failed
+
+**Example:**
+
+```rust
+let png = backend.render_scene(&scene)?;
+std::fs::write("plot.png", png)?;
+```
+
+## Implementation
+
+The PNG backend:
+1. Renders the scene to SVG using `SvgBackend`
+2. Loads system fonts into a `resvg` font database
+3. Parses the SVG with `usvg`
+4. Rasterizes to a pixmap at the specified scale
+5. Encodes as PNG
+
+## Convenience Function
+
+For one-shot rendering, use:
+
+```rust
+use kuva::render_to_png;
+
+let plots = vec![scatter.into()];
+let layout = Layout::auto_from_plots(&plots);
+let png = render_to_png(plots, layout, 2.0)?;
+```
+
+## Source
+
+`src/backend/png.rs`

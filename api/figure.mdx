@@ -1,0 +1,628 @@
+---
+title: Figure
+description: Create multi-panel layouts with shared axes, labels, and unified legends
+---
+
+The `Figure` struct enables creation of sophisticated multi-panel layouts (also known as subplots or faceted plots). It supports grid-based arrangements, merged cells, shared axes, automatic panel labeling, and unified legends.
+
+## Constructor
+
+### new
+
+```rust
+pub fn new(rows: usize, cols: usize) -> Self
+```
+
+Create a new figure with the specified grid dimensions.
+
+<ParamField path="rows" type="usize" required>
+  Number of rows in the grid.
+</ParamField>
+
+<ParamField path="cols" type="usize" required>
+  Number of columns in the grid.
+</ParamField>
+
+**Example:**
+
+```rust
+use kuva::render::figure::Figure;
+
+// Create a 2x2 grid
+let figure = Figure::new(2, 2);
+```
+
+---
+
+## Basic Configuration Methods
+
+### with_title
+
+```rust
+pub fn with_title<S: Into<String>>(mut self, title: S) -> Self
+```
+
+Set the overall figure title (appears at the top).
+
+<ParamField path="title" type="impl Into<String>" required>
+  The figure title text.
+</ParamField>
+
+### with_title_size
+
+```rust
+pub fn with_title_size(mut self, size: u32) -> Self
+```
+
+Set the font size for the figure title.
+
+<ParamField path="size" type="u32" required>
+  Font size in pixels. Default is `20`.
+</ParamField>
+
+**Example:**
+
+```rust
+let figure = Figure::new(2, 2)
+    .with_title("Multi-Panel Analysis")
+    .with_title_size(24);
+```
+
+---
+
+## Plot and Layout Configuration
+
+### with_plots
+
+```rust
+pub fn with_plots(mut self, plots: Vec<Vec<Plot>>) -> Self
+```
+
+Provide the plots for each panel. The outer vector corresponds to panels (in row-major order), and the inner vector contains plots to overlay in that panel.
+
+<ParamField path="plots" type="Vec<Vec<Plot>>" required>
+  A vector of plot vectors, one per panel.
+</ParamField>
+
+### with_layouts
+
+```rust
+pub fn with_layouts(mut self, layouts: Vec<Layout>) -> Self
+```
+
+Provide custom layouts for each panel. If not provided, layouts are auto-generated from plots.
+
+<ParamField path="layouts" type="Vec<Layout>" required>
+  A vector of `Layout` instances, one per panel.
+</ParamField>
+
+**Example:**
+
+```rust
+let scatter1 = ScatterPlot::new().with_data(vec![(1.0, 2.0)]);
+let scatter2 = ScatterPlot::new().with_data(vec![(2.0, 3.0)]);
+let line1 = LinePlot::new().with_data(vec![(0.0, 1.0), (1.0, 2.0)]);
+let line2 = LinePlot::new().with_data(vec![(0.0, 0.5), (1.0, 1.5)]);
+
+let plots = vec![
+    vec![scatter1.into()],  // Panel 0
+    vec![scatter2.into()],  // Panel 1
+    vec![line1.into()],     // Panel 2
+    vec![line2.into()],     // Panel 3
+];
+
+let figure = Figure::new(2, 2)
+    .with_plots(plots);
+```
+
+---
+
+## Panel Structure and Merging
+
+### with_structure
+
+```rust
+pub fn with_structure(mut self, structure: Vec<Vec<usize>>) -> Self
+```
+
+Define a custom panel structure to merge cells. Each inner vector contains cell indices (in row-major order) that should be merged into a single panel.
+
+<ParamField path="structure" type="Vec<Vec<usize>>" required>
+  A vector where each element is a vector of cell indices to merge. Merged cells must form a rectangle.
+</ParamField>
+
+**Example:**
+
+```rust
+// 2x2 grid where top row is merged:
+// [  Panel 0 (merged)  ]
+// [ Panel 1 ][ Panel 2 ]
+let structure = vec![
+    vec![0, 1],  // Merge cells 0 and 1 (top row)
+    vec![2],     // Cell 2 (bottom-left)
+    vec![3],     // Cell 3 (bottom-right)
+];
+
+let figure = Figure::new(2, 2)
+    .with_structure(structure);
+```
+
+<Note>
+Merged cells must form filled rectangles. The validation logic will panic if cells form non-rectangular shapes or have gaps.
+</Note>
+
+---
+
+## Panel Labeling
+
+### with_labels
+
+```rust
+pub fn with_labels(mut self) -> Self
+```
+
+Add bold uppercase panel labels (A, B, C, ...) to each panel.
+
+### with_labels_numeric
+
+```rust
+pub fn with_labels_numeric(mut self) -> Self
+```
+
+Add numeric panel labels (1, 2, 3, ...).
+
+### with_labels_lowercase
+
+```rust
+pub fn with_labels_lowercase(mut self) -> Self
+```
+
+Add lowercase panel labels (a, b, c, ...).
+
+### with_labels_custom
+
+```rust
+pub fn with_labels_custom(mut self, labels: Vec<&str>, config: LabelConfig) -> Self
+```
+
+Add custom panel labels with specific styling.
+
+<ParamField path="labels" type="Vec<&str>" required>
+  Custom label text for each panel.
+</ParamField>
+
+<ParamField path="config" type="LabelConfig" required>
+  Label configuration (size, boldness).
+</ParamField>
+
+**Example:**
+
+```rust
+use kuva::render::figure::{Figure, LabelConfig, LabelStyle};
+
+// Uppercase labels (A, B, C, ...)
+let figure = Figure::new(2, 2)
+    .with_labels();
+
+// Custom labels
+let config = LabelConfig {
+    style: LabelStyle::Custom(vec![]),
+    size: 14,
+    bold: true,
+};
+let figure = Figure::new(2, 2)
+    .with_labels_custom(vec!["Fig 1", "Fig 2", "Fig 3", "Fig 4"], config);
+```
+
+---
+
+## Shared Axes
+
+### with_shared_x_all
+
+```rust
+pub fn with_shared_x_all(mut self) -> Self
+```
+
+Share the x-axis across all columns. The range is unified, and only the bottom row shows tick labels.
+
+### with_shared_y_all
+
+```rust
+pub fn with_shared_y_all(mut self) -> Self
+```
+
+Share the y-axis across all rows. The range is unified, and only the leftmost column shows tick labels.
+
+### with_shared_x
+
+```rust
+pub fn with_shared_x(mut self, col: usize) -> Self
+```
+
+Share the x-axis within a single column.
+
+<ParamField path="col" type="usize" required>
+  The column index (0-based).
+</ParamField>
+
+### with_shared_y
+
+```rust
+pub fn with_shared_y(mut self, row: usize) -> Self
+```
+
+Share the y-axis within a single row.
+
+<ParamField path="row" type="usize" required>
+  The row index (0-based).
+</ParamField>
+
+### with_shared_x_slice
+
+```rust
+pub fn with_shared_x_slice(mut self, col: usize, row_start: usize, row_end: usize) -> Self
+```
+
+Share the x-axis within a column for a slice of rows.
+
+<ParamField path="col" type="usize" required>
+  The column index.
+</ParamField>
+
+<ParamField path="row_start" type="usize" required>
+  Starting row index (inclusive).
+</ParamField>
+
+<ParamField path="row_end" type="usize" required>
+  Ending row index (inclusive).
+</ParamField>
+
+### with_shared_y_slice
+
+```rust
+pub fn with_shared_y_slice(mut self, row: usize, col_start: usize, col_end: usize) -> Self
+```
+
+Share the y-axis within a row for a slice of columns.
+
+<ParamField path="row" type="usize" required>
+  The row index.
+</ParamField>
+
+<ParamField path="col_start" type="usize" required>
+  Starting column index (inclusive).
+</ParamField>
+
+<ParamField path="col_end" type="usize" required>
+  Ending column index (inclusive).
+</ParamField>
+
+**Example:**
+
+```rust
+let figure = Figure::new(3, 2)
+    .with_shared_x_all()  // All panels share x-axis
+    .with_shared_y(0);    // Top row shares y-axis
+```
+
+---
+
+## Dimension and Spacing
+
+### with_cell_size
+
+```rust
+pub fn with_cell_size(mut self, w: f64, h: f64) -> Self
+```
+
+Set the width and height of individual cells in pixels.
+
+<ParamField path="w" type="f64" required>
+  Cell width. Default is `500.0`.
+</ParamField>
+
+<ParamField path="h" type="f64" required>
+  Cell height. Default is `380.0`.
+</ParamField>
+
+### with_figure_size
+
+```rust
+pub fn with_figure_size(mut self, w: f64, h: f64) -> Self
+```
+
+Set the total figure size in pixels. Cells auto-compute to fit. Takes precedence over `with_cell_size`.
+
+<ParamField path="w" type="f64" required>
+  Total figure width.
+</ParamField>
+
+<ParamField path="h" type="f64" required>
+  Total figure height.
+</ParamField>
+
+### with_spacing
+
+```rust
+pub fn with_spacing(mut self, px: f64) -> Self
+```
+
+Set the spacing between panels in pixels.
+
+<ParamField path="px" type="f64" required>
+  Spacing in pixels. Default is `15.0`.
+</ParamField>
+
+### with_padding
+
+```rust
+pub fn with_padding(mut self, px: f64) -> Self
+```
+
+Set the padding around the entire figure in pixels.
+
+<ParamField path="px" type="f64" required>
+  Padding in pixels. Default is `10.0`.
+</ParamField>
+
+**Example:**
+
+```rust
+let figure = Figure::new(2, 3)
+    .with_figure_size(1200.0, 800.0)
+    .with_spacing(20.0)
+    .with_padding(15.0);
+```
+
+---
+
+## Shared Legend
+
+### with_shared_legend
+
+```rust
+pub fn with_shared_legend(mut self) -> Self
+```
+
+Add a shared legend to the right of the figure, auto-collected from all plots.
+
+### with_shared_legend_bottom
+
+```rust
+pub fn with_shared_legend_bottom(mut self) -> Self
+```
+
+Add a shared legend below the figure.
+
+### with_shared_legend_position
+
+```rust
+pub fn with_shared_legend_position(mut self, pos: FigureLegendPosition) -> Self
+```
+
+Override the shared legend position.
+
+<ParamField path="pos" type="FigureLegendPosition" required>
+  Either `FigureLegendPosition::Right` or `FigureLegendPosition::Bottom`.
+</ParamField>
+
+### with_shared_legend_entries
+
+```rust
+pub fn with_shared_legend_entries(mut self, entries: Vec<LegendEntry>) -> Self
+```
+
+Provide manual legend entries instead of auto-collecting from plots.
+
+<ParamField path="entries" type="Vec<LegendEntry>" required>
+  Custom legend entries.
+</ParamField>
+
+### with_keep_panel_legends
+
+```rust
+pub fn with_keep_panel_legends(mut self) -> Self
+```
+
+Keep per-panel legends visible alongside the shared legend. By default, panel legends are hidden when a shared legend is active.
+
+**Example:**
+
+```rust
+use kuva::render::figure::{Figure, FigureLegendPosition};
+
+let figure = Figure::new(2, 2)
+    .with_plots(plots)
+    .with_shared_legend()  // Auto-collect legend on right
+    .with_keep_panel_legends();  // Also show per-panel legends
+```
+
+---
+
+## Rendering
+
+### render
+
+```rust
+pub fn render(self) -> Scene
+```
+
+Consume the figure and render it to a `Scene` (internal representation). Use `backend::svg::SvgBackend` or other backends to convert the scene to the final output format.
+
+**Example:**
+
+```rust
+use kuva::render::figure::Figure;
+use kuva::backend::svg::SvgBackend;
+
+let figure = Figure::new(2, 2)
+    .with_plots(plots)
+    .with_labels()
+    .with_shared_x_all();
+
+let scene = figure.render();
+let svg = SvgBackend.render_scene(&scene);
+```
+
+<Note>
+The `render()` method consumes the `Figure`. If you need to generate multiple outputs, clone your plots beforehand.
+</Note>
+
+---
+
+## Complete Example
+
+```rust
+use kuva::prelude::*;
+use kuva::render::figure::{Figure, FigureLegendPosition};
+use kuva::render::layout::Layout;
+use kuva::backend::svg::SvgBackend;
+
+// Create plots for each panel
+let scatter1 = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (2.0, 3.0), (3.0, 2.5)])
+    .with_color("steelblue")
+    .with_legend_label("Series A");
+
+let scatter2 = ScatterPlot::new()
+    .with_data(vec![(1.0, 1.5), (2.0, 2.5), (3.0, 3.5)])
+    .with_color("orange")
+    .with_legend_label("Series B");
+
+let line1 = LinePlot::new()
+    .with_data(vec![(0.0, 1.0), (1.0, 2.0), (2.0, 3.0), (3.0, 4.0)])
+    .with_color("red")
+    .with_legend_label("Trend A");
+
+let line2 = LinePlot::new()
+    .with_data(vec![(0.0, 0.5), (1.0, 1.5), (2.0, 2.5), (3.0, 3.5)])
+    .with_color("green")
+    .with_legend_label("Trend B");
+
+// Organize plots by panel
+let plots = vec![
+    vec![scatter1.into()],  // Top-left
+    vec![scatter2.into()],  // Top-right
+    vec![line1.into()],     // Bottom-left
+    vec![line2.into()],     // Bottom-right
+];
+
+// Optional: custom layouts for each panel
+let layouts = vec![
+    Layout::auto_from_plots(&plots[0])
+        .with_title("Scatter A")
+        .with_x_label("Time"),
+    Layout::auto_from_plots(&plots[1])
+        .with_title("Scatter B")
+        .with_x_label("Time"),
+    Layout::auto_from_plots(&plots[2])
+        .with_title("Line A")
+        .with_y_label("Value"),
+    Layout::auto_from_plots(&plots[3])
+        .with_title("Line B")
+        .with_y_label("Value"),
+];
+
+// Build the figure
+let figure = Figure::new(2, 2)
+    .with_title("Multi-Panel Analysis")
+    .with_plots(plots)
+    .with_layouts(layouts)
+    .with_labels()  // Add A, B, C, D labels
+    .with_shared_x_all()  // Share x-axis across columns
+    .with_shared_legend()  // Unified legend on right
+    .with_figure_size(1000.0, 800.0)
+    .with_spacing(20.0);
+
+// Render to SVG
+let scene = figure.render();
+let svg = SvgBackend.render_scene(&scene);
+std::fs::write("figure.svg", svg).unwrap();
+```
+
+---
+
+## Advanced: Custom Panel Structure
+
+```rust
+// 3x3 grid with merged cells:
+// [ Panel 0 (merged 2x2) ][ Panel 1 ]
+// [                      ][ Panel 2 ]
+// [ Panel 3 ][ Panel 4  ][ Panel 5 ]
+
+let structure = vec![
+    vec![0, 1, 3, 4],  // Merge cells 0,1,3,4 (top-left 2x2)
+    vec![2],           // Cell 2
+    vec![5],           // Cell 5
+    vec![6],           // Cell 6
+    vec![7],           // Cell 7
+    vec![8],           // Cell 8
+];
+
+let figure = Figure::new(3, 3)
+    .with_structure(structure)
+    .with_plots(plots);
+```
+
+---
+
+## FigureLegendPosition
+
+```rust
+pub enum FigureLegendPosition {
+    Right,
+    Bottom,
+}
+```
+
+Defines where the shared legend appears:
+
+- **`Right`**: Legend appears on the right side of the figure
+- **`Bottom`**: Legend appears below the figure
+
+---
+
+## LabelStyle
+
+```rust
+pub enum LabelStyle {
+    Uppercase,
+    Lowercase,
+    Numeric,
+    Custom(Vec<String>),
+}
+```
+
+Defines the style of panel labels:
+
+- **`Uppercase`**: A, B, C, D, ...
+- **`Lowercase`**: a, b, c, d, ...
+- **`Numeric`**: 1, 2, 3, 4, ...
+- **`Custom(Vec<String>)`**: User-provided labels
+
+---
+
+## LabelConfig
+
+```rust
+pub struct LabelConfig {
+    pub style: LabelStyle,
+    pub size: u32,
+    pub bold: bool,
+}
+```
+
+Configuration for panel labels:
+
+<ParamField path="style" type="LabelStyle">
+  The labeling style (uppercase, lowercase, numeric, or custom).
+</ParamField>
+
+<ParamField path="size" type="u32">
+  Font size in pixels. Default is `16`.
+</ParamField>
+
+<ParamField path="bold" type="bool">
+  Whether labels are bold. Default is `true`.
+</ParamField>

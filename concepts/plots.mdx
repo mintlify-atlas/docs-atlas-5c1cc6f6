@@ -1,0 +1,329 @@
+---
+title: Plot System
+description: Creating plots, using builder patterns, and working with the Plot enum
+---
+
+## Overview
+
+Kuva provides 20+ plot types for scientific visualization. Each plot type has its own builder API with type-specific configuration methods. All plots implement `Into<Plot>` for collection into `Vec<Plot>`.
+
+## Creating Plots
+
+### Basic Pattern
+
+All plots follow a consistent builder pattern:
+
+```rust
+use kuva::plot::scatter::ScatterPlot;
+
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (3.0, 4.0), (5.0, 6.0)])
+    .with_color("steelblue")
+    .with_size(5.0)
+    .with_legend("My Data");
+```
+
+### Converting to Plot Enum
+
+Plots must be converted to the `Plot` enum for rendering:
+
+```rust
+use kuva::render::plots::Plot;
+
+// Explicit conversion
+let plot = Plot::Scatter(scatter);
+
+// Using Into trait (more ergonomic)
+let plots: Vec<Plot> = vec![scatter.into()];
+```
+
+The `Plot` enum (src/render/plots.rs:30-56) wraps all plot types:
+
+```rust
+pub enum Plot {
+    Scatter(ScatterPlot),
+    Line(LinePlot),
+    Bar(BarPlot),
+    Histogram(Histogram),
+    Box(BoxPlot),
+    Violin(ViolinPlot),
+    Heatmap(Heatmap),
+    // ... and 15+ more types
+}
+```
+
+## Plot Type Categories
+
+### Point Plots
+
+**ScatterPlot** - X/Y points with optional error bars, trend lines, and confidence bands
+
+```rust
+use kuva::plot::scatter::{ScatterPlot, TrendLine, MarkerShape};
+
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.1), (2.0, 3.9), (3.0, 6.2)])
+    .with_color("steelblue")
+    .with_size(5.0)
+    .with_marker(MarkerShape::Circle)
+    .with_trend(TrendLine::Linear)
+    .with_trend_color("crimson")
+    .with_equation()      // Show y = mx + b
+    .with_correlation();  // Show R²
+```
+
+Marker shapes: `Circle`, `Square`, `Triangle`, `Diamond`, `Cross`, `Plus`
+
+**StripPlot** - Categorical X with jittered Y values
+
+```rust
+use kuva::plot::strip::{StripPlot, StripGroup};
+
+let strip = StripPlot::new()
+    .with_groups(vec![
+        StripGroup::new("Group A", vec![1.2, 2.3, 1.8]),
+        StripGroup::new("Group B", vec![3.1, 2.9, 3.5]),
+    ])
+    .with_color("steelblue");
+```
+
+### Line Plots
+
+**LinePlot** - Connected line segments with optional fill and bands
+
+```rust
+use kuva::plot::{LinePlot, LineStyle};
+
+let line = LinePlot::new()
+    .with_data((0..=100).map(|i| {
+        let x = i as f64 * 0.1;
+        (x, x.sin())
+    }))
+    .with_color("steelblue")
+    .with_stroke_width(2.0)
+    .with_line_style(LineStyle::Solid)  // or Dashed, Dotted, DashDot
+    .with_fill()                        // Area plot
+    .with_fill_opacity(0.3);
+```
+
+**SeriesPlot** - Y values only (X is implicit index)
+
+```rust
+use kuva::plot::{SeriesPlot, SeriesStyle};
+
+let series = SeriesPlot::new()
+    .with_values(vec![2.0, 4.5, 3.8, 6.2, 5.1])
+    .with_color("steelblue")
+    .with_style(SeriesStyle::Line);  // or Markers, Both
+```
+
+### Distribution Plots
+
+**Histogram** - Binned frequency distribution
+
+```rust
+use kuva::plot::histogram::Histogram;
+
+let hist = Histogram::new()
+    .with_data(vec![1.2, 2.3, 1.8, 3.1, 2.9])
+    .with_bins(10)
+    .with_range(0.0, 5.0)
+    .with_color("steelblue")
+    .with_normalize();  // Convert to density
+```
+
+**BoxPlot** - Box-and-whisker with outliers
+
+```rust
+use kuva::plot::boxplot::{BoxPlot, BoxGroup};
+
+let boxplot = BoxPlot::new()
+    .with_groups(vec![
+        BoxGroup::new("Group A", vec![1.2, 2.3, 1.8, 2.0]),
+        BoxGroup::new("Group B", vec![3.1, 2.9, 3.5, 3.0]),
+    ])
+    .with_color("steelblue");
+```
+
+**ViolinPlot** - Kernel density estimate + box plot
+
+```rust
+use kuva::plot::violin::{ViolinPlot, ViolinGroup};
+
+let violin = ViolinPlot::new()
+    .with_groups(vec![
+        ViolinGroup::new("Group A", vec![1.2, 2.3, 1.8]),
+        ViolinGroup::new("Group B", vec![3.1, 2.9, 3.5]),
+    ])
+    .with_color("steelblue")
+    .with_bandwidth(0.3);  // KDE smoothing
+```
+
+### Bar Plots
+
+**BarPlot** - Grouped or stacked bars
+
+```rust
+use kuva::plot::bar::{BarPlot, BarGroup, Bar};
+
+let bar = BarPlot::new()
+    .with_groups(vec![
+        BarGroup::new("Q1", vec![
+            Bar::new("Product A", 100.0),
+            Bar::new("Product B", 150.0),
+        ]),
+        BarGroup::new("Q2", vec![
+            Bar::new("Product A", 120.0),
+            Bar::new("Product B", 180.0),
+        ]),
+    ])
+    .with_legend(vec!["Product A", "Product B"])
+    .with_stacked();  // Stack bars instead of grouping
+```
+
+### Grid Plots
+
+**Heatmap** - 2D color-coded matrix
+
+```rust
+use kuva::plot::Heatmap;
+use kuva::render::ColorMap;
+
+let heatmap = Heatmap::new()
+    .with_data(vec![
+        vec![1.0, 2.0, 3.0],
+        vec![4.0, 5.0, 6.0],
+        vec![7.0, 8.0, 9.0],
+    ])
+    .with_color_map(ColorMap::Viridis)
+    .with_x_labels(vec!["A", "B", "C"])
+    .with_y_labels(vec!["X", "Y", "Z"]);
+```
+
+**Histogram2D** - 2D binned frequency
+
+```rust
+use kuva::plot::Histogram2D;
+
+let hist2d = Histogram2D::new()
+    .with_data(vec![(1.0, 2.0), (1.5, 2.3), (2.1, 1.8)])
+    .with_x_bins(10)
+    .with_y_bins(10)
+    .with_x_range(0.0, 5.0)
+    .with_y_range(0.0, 5.0);
+```
+
+## Plot Methods
+
+### Common Builder Methods
+
+Most plot types support these common methods:
+
+```rust
+.with_color("steelblue")           // CSS color string
+.with_legend("My Data")            // Legend label
+.with_alpha(0.7)                   // Opacity (0.0-1.0)
+```
+
+### Data Methods
+
+Data can be provided in multiple formats:
+
+```rust
+// Vec of tuples
+.with_data(vec![(1.0, 2.0), (3.0, 4.0)])
+
+// Iterator (consumed immediately)
+.with_data((0..10).map(|i| (i as f64, i as f64 * 2.0)))
+
+// Separate X and Y vectors (some plot types)
+.with_xy(vec![1.0, 2.0, 3.0], vec![2.0, 4.0, 6.0])
+```
+
+### Legend Integration
+
+Plots with `.with_legend()` automatically appear in the legend:
+
+```rust
+let plots: Vec<Plot> = vec![
+    ScatterPlot::new()
+        .with_data(data1)
+        .with_color("steelblue")
+        .with_legend("Dataset 1")
+        .into(),
+    ScatterPlot::new()
+        .with_data(data2)
+        .with_color("crimson")
+        .with_legend("Dataset 2")
+        .into(),
+];
+
+// Layout automatically detects and shows legend
+let layout = Layout::auto_from_plots(&plots);
+```
+
+## Plot Bounds
+
+Each plot type implements a `bounds()` method that returns `Option<((f64, f64), (f64, f64))>` representing `((x_min, x_max), (y_min, y_max))`.
+
+The `Layout::auto_from_plots()` function calls `bounds()` on each plot to compute axis ranges (src/render/plots.rs:144-503).
+
+Special cases:
+- **Category plots** (Bar, Box, Violin) use integer positions with 0.5 padding
+- **Grid plots** (Heatmap, Histogram2D) align cells to integer boundaries
+- **Pixel-space plots** (Chord, Sankey, PhyloTree) return dummy bounds
+
+## Colorbar Integration
+
+Plots with continuous color mappings automatically show a colorbar:
+
+```rust
+let heatmap = Heatmap::new()
+    .with_data(data)
+    .with_color_map(ColorMap::Viridis);
+
+// Layout detects heatmap and adds colorbar
+let layout = Layout::auto_from_plots(&vec![heatmap.into()]);
+```
+
+Colorbar-enabled plots (src/render/plots.rs:505-567):
+- `Heatmap`
+- `Histogram2D`
+- `DotPlot` (when using color encoding)
+- `Contour` (when filled)
+
+## Multiple Plots
+
+Combine different plot types by collecting into `Vec<Plot>`:
+
+```rust
+let scatter = ScatterPlot::new()
+    .with_data(data1)
+    .with_color("steelblue")
+    .with_legend("Points");
+
+let line = LinePlot::new()
+    .with_data(data2)
+    .with_color("crimson")
+    .with_stroke_width(2.0)
+    .with_legend("Trend");
+
+let plots: Vec<Plot> = vec![scatter.into(), line.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Combined Plot");
+
+let svg = kuva::render_to_svg(plots, layout);
+```
+
+## Source Code References
+
+- Plot enum: `src/render/plots.rs:30-56`
+- Plot bounds: `src/render/plots.rs:144-503`
+- Into implementations: `src/render/plots.rs:58-82`
+- Individual plot types: `src/plot/*.rs`
+
+## Next Steps
+
+- [Layout System](/concepts/layouts) - Configuring axes and appearance
+- [Theme System](/concepts/themes-palettes) - Styling plots
+- [Plot Types](/plot-types) - Detailed documentation for each plot type

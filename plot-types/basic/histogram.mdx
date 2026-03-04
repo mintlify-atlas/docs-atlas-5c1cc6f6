@@ -1,0 +1,234 @@
+---
+title: Histogram
+description: Visualize distributions by binning continuous data into equal-width intervals
+---
+
+Histograms display the distribution of a continuous variable by dividing the data range into bins and counting how many values fall into each bin. Kuva's `Histogram` supports customizable bin counts, explicit ranges, normalization, and transparent overlays for comparing multiple distributions.
+
+## When to Use
+
+- Visualizing the distribution of a single continuous variable
+- Understanding data spread, skewness, and modality
+- Comparing distributions across groups (using overlapping histograms)
+- Checking for outliers and data quality issues
+- Assessing whether data follows a particular distribution (normal, uniform, etc.)
+
+## Basic Example
+
+```rust
+use kuva::plot::Histogram;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data = vec![1.1, 2.3, 2.7, 3.2, 3.8, 3.9, 4.0, 1.5, 2.1, 3.5];
+
+let hist = Histogram::new()
+    .with_data(data.clone())
+    .with_bins(10)
+    .with_range((data.iter().cloned().fold(f64::INFINITY, f64::min),
+                 data.iter().cloned().fold(f64::NEG_INFINITY, f64::max)))
+    .with_color("steelblue");
+
+let plots = vec![Plot::Histogram(hist)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Histogram")
+    .with_x_label("Value")
+    .with_y_label("Count");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("histogram.svg", svg).unwrap();
+```
+
+## Key Methods
+
+### Data Input
+
+<ParamField path="with_data" type="method">
+  Set the input data values. Accepts any iterator implementing `Into<f64>`:
+  
+  ```rust
+  .with_data(vec![1.1, 2.3, 2.7, 3.2, 3.8])
+  ```
+  
+  Values outside the range (set by `.with_range()`) are silently ignored.
+</ParamField>
+
+<ParamField path="with_range" type="method">
+  **Required** for `Layout::auto_from_plots` to work. Set the bin range as `(min, max)`:
+  
+  ```rust
+  let data = vec![0.1, 0.5, 1.2, 2.8, 3.0];
+  let min = data.iter().cloned().fold(f64::INFINITY, f64::min);
+  let max = data.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+  
+  .with_range((min, max))
+  ```
+  
+  Without an explicit range, `bounds()` returns `None` and the chart will be empty. For overlapping histograms, use the same combined range for both so their x-axes align.
+</ParamField>
+
+### Binning
+
+<ParamField path="with_bins" type="method">
+  Set the number of equal-width bins (default `10`):
+  
+  ```rust
+  .with_bins(30)  // More bins = finer resolution
+  .with_bins(5)   // Fewer bins = smoother
+  ```
+  
+  Choose a value that balances resolution against noise. Too many bins create a spiky histogram; too few hide important structure.
+</ParamField>
+
+### Styling
+
+<ParamField path="with_color" type="method">
+  Set the bar fill color:
+  
+  ```rust
+  .with_color("steelblue")
+  .with_color("#4682b4")
+  .with_color("#4682b480")  // With alpha channel for transparency
+  ```
+  
+  For overlapping histograms, use an 8-digit hex color (`#RRGGBBAA`) so bars from different series show through.
+</ParamField>
+
+### Normalization
+
+<ParamField path="with_normalize" type="method">
+  Normalize bar heights so the tallest bar equals `1.0`:
+  
+  ```rust
+  .with_normalize()
+  ```
+  
+  This is **peak normalization**, not probability density. The y-axis represents relative frequency (tallest bin = 1), making it easier to compare histograms with different sample sizes.
+</ParamField>
+
+### Legend
+
+<ParamField path="with_legend" type="method">
+  Attach a legend label:
+  
+  ```rust
+  .with_legend("Control group")
+  ```
+</ParamField>
+
+## Examples
+
+### Basic Histogram
+
+```rust
+use rand::SeedableRng;
+use rand_distr::{Distribution, Normal};
+
+// Generate 300 samples from N(0, 1)
+let mut rng = rand::rngs::SmallRng::seed_from_u64(42);
+let dist = Normal::new(0.0, 1.0).unwrap();
+let data: Vec<f64> = (0..300).map(|_| dist.sample(&mut rng)).collect();
+
+let hist = Histogram::new()
+    .with_data(data)
+    .with_bins(30)
+    .with_range((-3.0, 3.0))
+    .with_color("steelblue");
+```
+
+### Comparing Bin Counts
+
+```rust
+// Coarse binning - 6 bins
+let hist_coarse = Histogram::new()
+    .with_data(data.clone())
+    .with_bins(6)
+    .with_range((-3.0, 3.0))
+    .with_color("steelblue");
+
+// Fine binning - 60 bins
+let hist_fine = Histogram::new()
+    .with_data(data)
+    .with_bins(60)
+    .with_range((-3.0, 3.0))
+    .with_color("steelblue");
+```
+
+### Normalized Histogram
+
+```rust
+let hist = Histogram::new()
+    .with_data(data)
+    .with_bins(30)
+    .with_range((-3.0, 3.0))
+    .with_color("steelblue")
+    .with_normalize();
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Normalized Histogram")
+    .with_y_label("Relative frequency");  // Note different y-label
+```
+
+### Overlapping Distributions
+
+```rust
+let group_a: Vec<f64> = /* sample from N(-1, 0.8) */;
+let group_b: Vec<f64> = /* sample from N(1, 0.8) */;
+
+// Use same range for both
+let range = (-4.0_f64, 4.0_f64);
+
+// Semi-transparent colors so bars overlap visually
+let hist_a = Histogram::new()
+    .with_data(group_a)
+    .with_bins(16)
+    .with_range(range)
+    .with_color("#4682b480")  // steelblue at 50% opacity
+    .with_legend("Group A");
+
+let hist_b = Histogram::new()
+    .with_data(group_b)
+    .with_bins(16)
+    .with_range(range)
+    .with_color("#dc143c80")  // crimson at 50% opacity
+    .with_legend("Group B");
+
+let plots = vec![Plot::Histogram(hist_a), Plot::Histogram(hist_b)];
+```
+
+## Tips
+
+<Tip>
+  **Choosing bins**: Start with the square root of your sample size (e.g., 30 bins for 900 samples) and adjust based on what structure you want to reveal.
+</Tip>
+
+<Tip>
+  **Overlapping histograms**: Always use the same bin count and range for both histograms, and use semi-transparent colors (`#RRGGBBAA` format) so both distributions are visible.
+</Tip>
+
+<Tip>
+  **Range matters**: The range determines the x-axis extent. For fair comparisons across groups, use the combined min/max of all datasets.
+</Tip>
+
+<Warning>
+  **Must set range**: Without calling `.with_range()`, `Layout::auto_from_plots` cannot determine axis bounds and your histogram will be empty. Always compute and set the range explicitly.
+</Warning>
+
+<Note>
+  Bin edges are computed as `[min, min+width, min+2*width, ..., max]` where `width = (max-min)/bins`. The rightmost bin is closed on both ends to include the maximum value.
+</Note>
+
+## Alternatives
+
+For comparing distributions across groups, consider:
+
+- **Box plots** - Show median, quartiles, and outliers; better for many groups
+- **Violin plots** - Smooth density estimate showing distribution shape
+- **Strip plots** - Show every individual data point
+
+## Source Location
+
+Implementation: `src/plot/histogram.rs`  
+Examples: `examples/histogram.rs`

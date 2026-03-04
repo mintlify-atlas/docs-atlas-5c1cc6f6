@@ -1,0 +1,253 @@
+---
+title: SeriesPlot
+description: API reference for SeriesPlot - 1D sequence plots with line, point, or combined styles
+---
+
+## SeriesPlot
+
+Builder for creating series plots — a 1D sequence of y-values plotted against their sequential index on the x-axis. A series plot is the simplest way to visualise a time series, signal, or any ordered sequence of measurements. The x-axis is assigned automatically as consecutive integers `0, 1, 2, …` matching the index of each value.
+
+Multiple `SeriesPlot` instances combined in one `plots` vector share the same axes and are drawn in order, enabling overlay of several series.
+
+### Constructor
+
+<ParamField path="SeriesPlot::new()" type="Self">
+  Create a series plot with default settings.
+  
+  **Defaults:**
+  - No data
+  - Color: `"black"`
+  - Style: `Point` (circles at each value)
+  - Stroke width: `2.0` pixels
+  - Point radius: `3.0` pixels
+  - No legend
+</ParamField>
+
+### Data Methods
+
+<ParamField path="with_data" type="Self">
+  ```rust
+  pub fn with_data<T, I>(self, data: I) -> Self
+  where
+      I: IntoIterator<Item = T>,
+      T: Into<f64>
+  ```
+  
+  Load y-values from any iterable of numeric values. The x position of each value is its index in the sequence (0, 1, 2, …).
+  
+  **Example:**
+  ```rust
+  let data: Vec<f64> = (0..100)
+      .map(|i| (i as f64 / 10.0).sin())
+      .collect();
+  let series = SeriesPlot::new().with_data(data);
+  ```
+</ParamField>
+
+### Styling Methods
+
+<ParamField path="with_color" type="Self">
+  ```rust
+  pub fn with_color<S: Into<String>>(self, color: S) -> Self
+  ```
+  
+  Set the color for lines and points. Default: `"black"`. Accepts any CSS color string (`"steelblue"`, `"#4682b4"`, `"rgb(70,130,180)"`).
+</ParamField>
+
+<ParamField path="with_stroke_width" type="Self">
+  ```rust
+  pub fn with_stroke_width(self, width: f64) -> Self
+  ```
+  
+  Set the line stroke width in pixels (default `2.0`). Only affects `Line` and `Both` styles.
+</ParamField>
+
+<ParamField path="with_point_radius" type="Self">
+  ```rust
+  pub fn with_point_radius(self, radius: f64) -> Self
+  ```
+  
+  Set the circle radius in pixels (default `3.0`). Only affects `Point` and `Both` styles.
+</ParamField>
+
+### Display Style Methods
+
+<ParamField path="with_line_style" type="Self">
+  ```rust
+  pub fn with_line_style(self) -> Self
+  ```
+  
+  Render as a polyline only — no circles at data points.
+</ParamField>
+
+<ParamField path="with_point_style" type="Self">
+  ```rust
+  pub fn with_point_style(self) -> Self
+  ```
+  
+  Render as circles only — no connecting line. **(default)**
+</ParamField>
+
+<ParamField path="with_line_point_style" type="Self">
+  ```rust
+  pub fn with_line_point_style(self) -> Self
+  ```
+  
+  Render as a polyline with circles at each data point.
+</ParamField>
+
+### Legend Methods
+
+<ParamField path="with_legend" type="Self">
+  ```rust
+  pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+  ```
+  
+  Enable a legend entry with the given label.
+  
+  **Example:**
+  ```rust
+  let series = SeriesPlot::new()
+      .with_data(vec![1.0_f64, 2.0, 1.5])
+      .with_legend("sensor A");
+  ```
+</ParamField>
+
+## Enums & Types
+
+### SeriesStyle
+
+Display style for a `SeriesPlot`. Controls whether each data point is rendered as a line segment, a dot, or both.
+
+- `Line` - Connect consecutive values with a polyline. No dots are drawn.
+- `Point` - Draw a circle at each value. No connecting line is drawn. **(default)**
+- `Both` - Draw both the connecting polyline and a circle at each value.
+
+## Complete Example
+
+### Line Series Plot
+
+```rust
+use kuva::plot::SeriesPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data: Vec<f64> = (0..80)
+    .map(|i| (i as f64 * std::f64::consts::TAU / 80.0).sin())
+    .collect();
+
+let series = SeriesPlot::new()
+    .with_data(data)
+    .with_color("steelblue")
+    .with_line_style()
+    .with_stroke_width(2.0);
+
+let plots = vec![Plot::Series(series)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Sine Wave")
+    .with_x_label("Sample")
+    .with_y_label("Amplitude");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("series.svg", svg).unwrap();
+```
+
+### Point Series Plot
+
+```rust
+use kuva::plot::SeriesPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data: Vec<f64> = (0..50)
+    .map(|i| (i as f64 * 0.2).sin() + (i as f64 * 0.05).cos())
+    .collect();
+
+let series = SeriesPlot::new()
+    .with_data(data)
+    .with_color("crimson")
+    .with_point_style()
+    .with_point_radius(4.0);
+
+let plots = vec![Plot::Series(series)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Signal Points")
+    .with_x_label("Index")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("series_points.svg", svg).unwrap();
+```
+
+### Combined Line and Point Series Plot
+
+```rust
+use kuva::plot::SeriesPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data: Vec<f64> = vec![1.0, 3.0, 2.0, 5.0, 4.0, 6.0, 5.5, 7.0];
+
+let series = SeriesPlot::new()
+    .with_data(data)
+    .with_color("seagreen")
+    .with_line_point_style()
+    .with_stroke_width(2.5)
+    .with_point_radius(4.0);
+
+let plots = vec![Plot::Series(series)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Measurements")
+    .with_x_label("Time")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("series_both.svg", svg).unwrap();
+```
+
+### Multiple Series Overlay
+
+```rust
+use kuva::plot::SeriesPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data1: Vec<f64> = (0..50)
+    .map(|i| (i as f64 * 0.2).sin())
+    .collect();
+
+let data2: Vec<f64> = (0..50)
+    .map(|i| (i as f64 * 0.2).cos())
+    .collect();
+
+let series1 = SeriesPlot::new()
+    .with_data(data1)
+    .with_color("steelblue")
+    .with_line_style()
+    .with_stroke_width(2.0)
+    .with_legend("sin(x)");
+
+let series2 = SeriesPlot::new()
+    .with_data(data2)
+    .with_color("crimson")
+    .with_line_style()
+    .with_stroke_width(2.0)
+    .with_legend("cos(x)");
+
+let plots = vec![Plot::Series(series1), Plot::Series(series2)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Trigonometric Functions")
+    .with_x_label("Sample")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("series_overlay.svg", svg).unwrap();
+```

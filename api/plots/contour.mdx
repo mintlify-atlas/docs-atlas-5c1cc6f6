@@ -1,0 +1,313 @@
+---
+title: ContourPlot
+description: API reference for contour plots with iso-lines and filled bands
+---
+
+A contour plot draws iso-lines (or filled iso-bands) on a 2D scalar field, connecting all points that share the same z value. It is well suited for visualising any continuous surface: density functions, spatial expression gradients, topographic elevation, or any field that varies over an x–y plane.
+
+## Constructor
+
+### `new()`
+
+Create a contour plot with default settings.
+
+**Returns:** `ContourPlot`
+
+**Defaults:**
+- 8 auto-spaced iso-levels
+- Viridis colormap
+- Line mode (not filled)
+- Stroke width 1.0
+- No fixed line color
+- No legend
+
+```rust
+use kuva::plot::ContourPlot;
+
+let cp = ContourPlot::new();
+```
+
+## Data Input
+
+### `with_grid()`
+
+Supply data as a pre-computed regular grid.
+
+<ParamField path="z" type="Vec<Vec<f64>>">
+  The scalar field as a row-major grid: `z[row][col]` where `row` corresponds to `y_coords[row]` and `col` to `x_coords[col]`
+</ParamField>
+
+<ParamField path="x_coords" type="Vec<f64>">
+  X coordinate for each column — must have length equal to `z[0].len()`
+</ParamField>
+
+<ParamField path="y_coords" type="Vec<f64>">
+  Y coordinate for each row — must have length equal to `z.len()`
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+// 5×5 Gaussian grid
+let coords: Vec<f64> = (-2..=2).map(|i| i as f64).collect();
+let z: Vec<Vec<f64>> = coords.iter()
+    .map(|&y| coords.iter()
+        .map(|&x| (-(x * x + y * y) / 2.0).exp())
+        .collect())
+    .collect();
+
+let cp = ContourPlot::new()
+    .with_grid(z, coords.clone(), coords);
+```
+
+### `with_points()`
+
+Supply data as scattered `(x, y, z)` points; IDW interpolates to a grid.
+
+<ParamField path="pts" type="I: IntoIterator<Item = (f64, f64, f64)>">
+  Iterator of `(x, y, z)` triples at arbitrary positions. The values are interpolated onto an internal 50×50 grid using inverse-distance weighting (IDW) before iso-lines are computed.
+</ParamField>
+
+**Returns:** `Self`
+
+The input points can be at any positions — they do not need to be on a regular grid. The grid bounds are set to the bounding box of the input points.
+
+```rust
+// 11×11 grid of sample points from a cone function
+let pts: Vec<(f64, f64, f64)> = (-5..=5)
+    .flat_map(|i| (-5..=5).map(move |j| {
+        let (x, y) = (i as f64, j as f64);
+        let z = 1.0 - (x * x + y * y).sqrt() / 7.0;
+        (x, y, z)
+    }))
+    .collect();
+
+let cp = ContourPlot::new()
+    .with_points(pts)
+    .with_n_levels(6);
+```
+
+## Iso-Levels
+
+### `with_levels()`
+
+Set explicit iso-level values.
+
+<ParamField path="levels" type="&[f64]">
+  Slice of explicit iso-level values. When set, these values override `with_n_levels`.
+</ParamField>
+
+**Returns:** `Self`
+
+Use this when iso-lines should correspond to specific thresholds.
+
+```rust
+// Gaussian peaks at z ∈ [0,1]; draw iso-lines at specific fractions
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_levels(&[0.1, 0.25, 0.5, 0.75, 0.9]);
+```
+
+### `with_n_levels()`
+
+Set the number of auto-spaced iso-levels.
+
+<ParamField path="n" type="usize">
+  Number of evenly spaced iso-levels within the z data range (default: 8)
+</ParamField>
+
+**Returns:** `Self`
+
+Levels are distributed evenly within the z data range, excluding the minimum and maximum. Ignored when explicit levels are set via `with_levels`.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_n_levels(12);
+```
+
+## Fill Mode
+
+### `with_filled()`
+
+Enable filled mode: fill the area between adjacent iso-levels.
+
+**Returns:** `Self`
+
+Each band is colored according to its z value using the active colormap. Calling `with_legend` in filled mode also renders a colorbar in the right margin.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_filled()
+    .with_legend("Density");
+```
+
+## Styling
+
+### `with_colormap()`
+
+Set the color map used for iso-line or filled-band colors.
+
+<ParamField path="map" type="ColorMap">
+  Color map applied to iso-levels / filled bands. Options: `ColorMap::Viridis` (default), `ColorMap::Inferno`, `ColorMap::Grayscale`, or `ColorMap::Custom(Arc<Fn>)`
+</ParamField>
+
+**Returns:** `Self`
+
+**Default:** `ColorMap::Viridis`
+
+```rust
+use kuva::plot::ColorMap;
+
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_colormap(ColorMap::Inferno);
+```
+
+### `with_line_color()`
+
+Set a fixed color for all iso-lines.
+
+<ParamField path="color" type="S: Into<String>">
+  CSS color string. When set, all iso-lines are drawn in this color instead of being colored by the colormap.
+</ParamField>
+
+**Returns:** `Self`
+
+Has no effect on filled bands — band colors always derive from the colormap.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_line_color("steelblue");   // all iso-lines in steelblue
+```
+
+### `with_line_width()`
+
+Set the iso-line stroke width in pixels.
+
+<ParamField path="w" type="f64">
+  Stroke width in pixels (default: 1.0)
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_line_width(2.0);
+```
+
+## Legend
+
+### `with_legend()`
+
+Set a legend label.
+
+<ParamField path="label" type="S: Into<String>">
+  Legend label text
+</ParamField>
+
+**Returns:** `Self`
+
+In **filled** mode (`with_filled`) this triggers a colorbar in the right margin using the label as the title. In **line** mode this adds a line entry to the in-plot legend box.
+
+```rust
+let cp = ContourPlot::new()
+    .with_grid(z, xs, ys)
+    .with_filled()
+    .with_legend("Density");
+```
+
+## Utility Methods
+
+### `effective_levels()`
+
+Compute effective iso-levels (respects explicit `levels` or auto from `n_levels`).
+
+**Returns:** `Vec<f64>`
+
+### `z_range()`
+
+Returns `(min, max)` of all z values in the grid.
+
+**Returns:** `(f64, f64)`
+
+## Complete Example
+
+```rust
+use kuva::plot::{ContourPlot, ColorMap};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+// Build a 40×40 Gaussian grid
+let n = 40_usize;
+let coords: Vec<f64> = (0..n)
+    .map(|i| -3.0 + i as f64 / (n - 1) as f64 * 6.0)
+    .collect();
+let z: Vec<Vec<f64>> = coords.iter()
+    .map(|&y| coords.iter()
+        .map(|&x| (-(x * x + y * y) / 2.0).exp())
+        .collect())
+    .collect();
+
+let cp = ContourPlot::new()
+    .with_grid(z, coords.clone(), coords)
+    .with_n_levels(8)
+    .with_filled()
+    .with_legend("Density");
+
+let plots = vec![Plot::Contour(cp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Gaussian Density")
+    .with_x_label("x")
+    .with_y_label("y");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("contour.svg", svg).unwrap();
+```
+
+## Public Fields
+
+<ParamField path="z" type="Vec<Vec<f64>>">
+  The scalar field as a row-major grid: `z[row][col]`
+</ParamField>
+
+<ParamField path="x_coords" type="Vec<f64>">
+  X coordinate for each column
+</ParamField>
+
+<ParamField path="y_coords" type="Vec<f64>">
+  Y coordinate for each row
+</ParamField>
+
+<ParamField path="levels" type="Vec<f64>">
+  Explicit iso-levels. When non-empty, overrides `n_levels`
+</ParamField>
+
+<ParamField path="n_levels" type="usize">
+  Number of auto-spaced iso-levels when `levels` is empty (default: 8)
+</ParamField>
+
+<ParamField path="filled" type="bool">
+  When `true`, the area between adjacent iso-levels is filled. Default: `false`
+</ParamField>
+
+<ParamField path="color_map" type="ColorMap">
+  Color map used to assign colors to iso-levels / filled bands. Default: `ColorMap::Viridis`
+</ParamField>
+
+<ParamField path="line_width" type="f64">
+  Iso-line stroke width in pixels (default: 1.0)
+</ParamField>
+
+<ParamField path="line_color" type="Option<String>">
+  Fixed color for all iso-lines. `None` = derive from `color_map`
+</ParamField>
+
+<ParamField path="legend_label" type="Option<String>">
+  Legend label
+</ParamField>

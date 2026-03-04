@@ -1,0 +1,314 @@
+---
+title: BrickPlot
+description: Row-per-sequence visualization where each character maps to a colored rectangle
+---
+
+A brick plot displays **DNA/RNA sequences**, **tandem repeat structures**, or any character-encoded per-row data as colored rectangles. Each character in a sequence is drawn as a brick; the color is determined by a template mapping characters to CSS colors.
+
+## When to Use
+
+- **DNA/RNA visualization**: Display nucleotide sequences with standard colors (A=green, C=blue, G=orange, T/U=red)
+- **Tandem repeat analysis**: Show BLADERUNNER strigar format repeat motifs
+- **Protein secondary structure**: Visualize helix/strand/coil patterns
+- **Multiple sequence alignment**: Compare sequences with positional coloring
+- **Any character-encoded data**: When each position encodes a discrete state
+
+## Basic Example
+
+```rust
+use std::collections::HashMap;
+use kuva::plot::BrickPlot;
+use kuva::plot::brick::BrickTemplate;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let tmpl = BrickTemplate::new().dna();
+
+let plot = BrickPlot::new()
+    .with_sequences(vec![
+        "CGGCGATCAGGCCGCACTCATCATCATCATCAT",
+        "CGGCGATCAGGCCGCACTCATCATCATCATCATCAT",
+    ])
+    .with_names(vec!["read_1", "read_2"])
+    .with_template(tmpl.template)
+    .with_x_offset(18.0);
+
+let plots = vec![Plot::Brick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("DNA Repeat Region");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("brick.svg", svg).unwrap();
+```
+
+## Input Modes
+
+### Sequence Mode: `with_sequences` + `with_template`
+
+Load raw character strings and color template.
+
+```rust
+use kuva::plot::brick::BrickTemplate;
+
+let tmpl = BrickTemplate::new().dna();  // A=green, C=blue, G=orange, T=red
+
+let plot = BrickPlot::new()
+    .with_sequences(vec!["ACGTACGT", "ACGTACGT"])
+    .with_names(vec!["seq_1", "seq_2"])
+    .with_template(tmpl.template);
+```
+
+Each character must have an entry in the template; unknown characters cause a panic.
+
+#### Built-in Templates
+
+**`BrickTemplate::new().dna()`** — Standard DNA colors:
+- A → `rgb(0,150,0)` (green)
+- C → `rgb(0,0,255)` (blue)
+- G → `rgb(209,113,5)` (orange)
+- T → `rgb(255,0,0)` (red)
+
+**`BrickTemplate::new().rna()`** — Standard RNA colors:
+- A → green
+- C → blue
+- G → orange
+- U → red
+
+#### Custom Template
+
+```rust
+use std::collections::HashMap;
+
+let mut tmpl = HashMap::new();
+tmpl.insert('H', "steelblue".to_string());   // helix
+tmpl.insert('E', "firebrick".to_string());   // strand
+tmpl.insert('C', "#aaaaaa".to_string());     // coil
+
+let plot = BrickPlot::new()
+    .with_sequences(vec!["HHHCCCEEEE"])
+    .with_names(vec!["prot_1"])
+    .with_template(tmpl);
+```
+
+### Strigar Mode: `with_strigars`
+
+Load structured tandem-repeat motif data in [BLADERUNNER](https://github.com/Psy-Fer/bladerunner) format.
+
+```rust
+let strigars = vec![
+    ("CAT:A,T:B".to_string(), "14A1B1A".to_string()),
+    ("CAT:A,C:B".to_string(), "12A1B3A".to_string()),
+];
+let plot = BrickPlot::new()
+    .with_names(vec!["read_1", "read_2"])
+    .with_strigars(strigars);
+```
+
+**Motif string**: comma-separated `kmer:letter` assignments (e.g. `"CAT:A,C:B"` binds CAT to local letter A).
+
+**Strigar string**: run-length encoded local letters (e.g. `"10A1B4A"` = 10 A's, 1 B, 4 A's).
+
+`with_strigars` normalizes k-mers across reads by canonical rotation, assigns global letters (A, B, C, …) ordered by frequency, auto-generates colors from a 10-color palette, and computes variable brick widths proportional to motif length.
+
+## Key Methods
+
+### Data Loading
+
+#### `with_sequences(sequences)`
+
+Load sequences — one string per row, ordered top to bottom.
+
+```rust
+let plot = BrickPlot::new()
+    .with_sequences(vec!["ACGTACGT", "ACGTACGT"]);
+```
+
+#### `with_names(names)`
+
+Load row labels — one name per sequence, rendered on y-axis.
+
+```rust
+let plot = BrickPlot::new()
+    .with_sequences(vec!["ACGT"])
+    .with_names(vec!["read_1"]);
+```
+
+#### `with_template(template: HashMap<char, String>)`
+
+Set character-to-color mapping.
+
+```rust
+let tmpl = BrickTemplate::new().dna();
+let plot = BrickPlot::new()
+    .with_template(tmpl.template);
+```
+
+#### `with_strigars(strigars)`
+
+Load strigar data; switches to strigar mode with auto-generated colors and variable-width bricks.
+
+```rust
+let strigars = vec![
+    ("CAT:A,T:B".to_string(), "14A1B1A".to_string()),
+];
+let plot = BrickPlot::new()
+    .with_strigars(strigars);
+```
+
+### Alignment
+
+#### `with_x_offset(x_offset: f64)`
+
+Apply global x-offset to all rows. Shifts sequences left by `x_offset` characters.
+
+```rust
+let plot = BrickPlot::new()
+    .with_x_offset(18.0);  // skip 18-character common prefix
+```
+
+Use to align region of interest at x = 0.
+
+#### `with_x_offsets(offsets)`
+
+Apply independent per-row offsets. Accepts `f64` or `Option<f64>` values.
+
+```rust
+let plot = BrickPlot::new()
+    .with_x_offset(12.0)  // global fallback
+    .with_x_offsets(vec![Some(18.0), Some(10.0), None]);  // row-specific
+```
+
+Plain `f64` treated as `Some(v)`; `None` falls back to global `x_offset`.
+
+### Display
+
+#### `with_values()`
+
+Overlay character label inside each brick.
+
+```rust
+let plot = BrickPlot::new()
+    .with_values();
+```
+
+Useful for short sequences or large bricks where text is readable.
+
+## Examples
+
+### DNA Repeat Region
+
+```rust
+let tmpl = BrickTemplate::new().dna();
+
+let plot = BrickPlot::new()
+    .with_sequences(vec![
+        "CGGCGATCAGGCCGCACTCATCATCATCATCAT",
+        "CGGCGATCAGGCCGCACTCATCATCATCATCATCAT",
+        "CGGCGATCAGGCCGCACTCATCATCATCAT",
+    ])
+    .with_names(vec!["read_1", "read_2", "read_3"])
+    .with_template(tmpl.template)
+    .with_x_offset(18.0);  // skip common prefix
+
+let plots = vec![Plot::Brick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("CAT Repeat Region");
+```
+
+Three reads with CAT trinucleotide repeats; common prefix skipped.
+
+### RNA Sequence
+
+```rust
+let tmpl = BrickTemplate::new().rna();
+
+let plot = BrickPlot::new()
+    .with_sequences(vec![
+        "AUGCAUGCAUGCAUG",
+        "AUGCAUGCAUGC",
+    ])
+    .with_names(vec!["rna_1", "rna_2"])
+    .with_template(tmpl.template);
+
+let plots = vec![Plot::Brick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("RNA Sequences");
+```
+
+RNA with U instead of T.
+
+### Protein Secondary Structure
+
+```rust
+let mut tmpl = HashMap::new();
+tmpl.insert('H', "steelblue".to_string());   // helix
+tmpl.insert('E', "firebrick".to_string());   // strand
+tmpl.insert('C', "#aaaaaa".to_string());     // coil
+
+let plot = BrickPlot::new()
+    .with_sequences(vec![
+        "HHHHHCCCCEEEECCCHHHHHH",
+        "HHHCCCEEEEECCCHHHHH",
+    ])
+    .with_names(vec!["prot_1", "prot_2"])
+    .with_template(tmpl);
+
+let plots = vec![Plot::Brick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Protein Secondary Structure");
+```
+
+Custom alphabet: H (helix), E (strand), C (coil).
+
+### Strigar Tandem Repeats
+
+```rust
+let strigars = vec![
+    ("CAT:A,T:B".to_string(), "14A1B1A".to_string()),
+    ("CAT:A,C:B".to_string(), "12A1B3A".to_string()),
+    ("CAT:A,CATCAT:B".to_string(), "10A1B2A".to_string()),
+];
+
+let plot = BrickPlot::new()
+    .with_names(vec!["read_1", "read_2", "read_3"])
+    .with_strigars(strigars);
+
+let plots = vec![Plot::Brick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Tandem Repeat Strigar");
+```
+
+BLADERUNNER format: motifs normalized, colors auto-generated, widths proportional to motif length.
+
+### Per-Row Alignment
+
+```rust
+let tmpl = BrickTemplate::new().dna();
+
+let plot = BrickPlot::new()
+    .with_sequences(vec![
+        "AAAACGTCGTCGTCGT",
+        "AACGTCGTCGTCGT",
+        "ACGTCGTCGTCGT",
+    ])
+    .with_names(vec!["read_1", "read_2", "read_3"])
+    .with_template(tmpl.template)
+    .with_x_offsets(vec![4.0, 2.0, 1.0]);  // skip different prefix lengths
+
+let plots = vec![Plot::Brick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Per-Row Alignment");
+```
+
+Each read has different prefix length; aligned at start of repeat.
+
+## Character Display
+
+By default, bricks are solid colored rectangles. Call `with_values()` to overlay the character inside each brick (useful for short sequences or when brick size is large enough for legible text).
+
+## See Also
+
+- [Heatmap](/plot-types/statistical/heatmap) — For numeric grids instead of character sequences
+- [Multiple sequence alignment tools] — For phylogenetic analysis

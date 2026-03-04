@@ -1,0 +1,296 @@
+---
+title: SankeyPlot
+description: Flow diagram with nodes arranged in columns and tapered ribbons
+---
+
+A Sankey diagram displays directed flows between nodes arranged in vertical columns. Nodes are rendered as rectangles; tapered ribbons connect them, with ribbon width proportional to flow magnitude.
+
+## Constructor
+
+### new
+
+Create a Sankey plot with default settings.
+
+```rust
+use kuva::plot::SankeyPlot;
+
+let sankey = SankeyPlot::new();
+```
+
+**Returns:** `SankeyPlot`
+
+**Defaults:**
+- Link color: source node color
+- Link opacity: 0.5
+- Node width: 20.0 pixels
+- Node gap: 8.0 pixels
+- No legend
+
+## Node Methods
+
+### with_node
+
+Declare a node explicitly (no-op if it already exists).
+
+```rust
+pub fn with_node<S: Into<String>>(self, label: S) -> Self
+```
+
+<ParamField path="label" type="String">
+  Node label
+</ParamField>
+
+**Example:**
+```rust
+let sankey = SankeyPlot::new()
+    .with_node("Source")
+    .with_node("Target");
+```
+
+---
+
+### with_node_color
+
+Set the color for a node, creating it if absent.
+
+```rust
+pub fn with_node_color<S: Into<String>, C: Into<String>>(self, label: S, color: C) -> Self
+```
+
+<ParamField path="label" type="String">
+  Node label
+</ParamField>
+
+<ParamField path="color" type="String">
+  CSS color string
+</ParamField>
+
+**Example:**
+```rust
+let sankey = SankeyPlot::new()
+    .with_node_color("Source", "steelblue")
+    .with_node_color("Target", "firebrick");
+```
+
+---
+
+### with_node_column
+
+Pin a node to a specific column, creating it if absent.
+
+```rust
+pub fn with_node_column<S: Into<String>>(self, label: S, col: usize) -> Self
+```
+
+<ParamField path="label" type="String">
+  Node label
+</ParamField>
+
+<ParamField path="col" type="usize">
+  Column index (0 = leftmost)
+</ParamField>
+
+**Example:**
+```rust
+let sankey = SankeyPlot::new()
+    .with_node_column("Source", 0)
+    .with_node_column("Middle", 1)
+    .with_node_column("Target", 2);
+```
+
+## Link Methods
+
+### with_link
+
+Add a link, auto-creating nodes by label if needed.
+
+```rust
+pub fn with_link<S: Into<String>>(self, source: S, target: S, value: f64) -> Self
+```
+
+<ParamField path="source" type="String">
+  Source node label
+</ParamField>
+
+<ParamField path="target" type="String">
+  Target node label
+</ParamField>
+
+<ParamField path="value" type="f64">
+  Flow magnitude
+</ParamField>
+
+**Example:**
+```rust
+let sankey = SankeyPlot::new()
+    .with_link("A", "B", 120.0)
+    .with_link("A", "C",  80.0)
+    .with_link("B", "D",  50.0);
+```
+
+---
+
+### with_link_colored
+
+Add a link with an explicit per-link color.
+
+```rust
+pub fn with_link_colored<S: Into<String>, C: Into<String>>(
+    self, source: S, target: S, value: f64, color: C,
+) -> Self
+```
+
+<ParamField path="source" type="String">
+  Source node label
+</ParamField>
+
+<ParamField path="target" type="String">
+  Target node label
+</ParamField>
+
+<ParamField path="value" type="f64">
+  Flow magnitude
+</ParamField>
+
+<ParamField path="color" type="String">
+  CSS color string for this link
+</ParamField>
+
+---
+
+### with_links
+
+Bulk add links from an iterator of `(source_label, target_label, value)`.
+
+```rust
+pub fn with_links<S, I>(self, links: I) -> Self
+where
+    S: Into<String>,
+    I: IntoIterator<Item = (S, S, f64)>,
+```
+
+<ParamField path="links" type="impl IntoIterator<Item = (String, String, f64)>">
+  Iterator of `(source, target, value)` triplets
+</ParamField>
+
+**Example:**
+```rust
+let links = vec![
+    ("A", "B", 120.0),
+    ("A", "C",  80.0),
+    ("B", "D",  50.0),
+];
+let sankey = SankeyPlot::new().with_links(links);
+```
+
+## Link Color Configuration
+
+### with_gradient_links
+
+Use gradient ribbons (linearGradient from source to target color).
+
+```rust
+pub fn with_gradient_links(self) -> Self
+```
+
+**Example:**
+```rust
+let sankey = SankeyPlot::new()
+    .with_links(links)
+    .with_gradient_links();
+```
+
+---
+
+### with_per_link_colors
+
+Use per-link colors (falls back to source color if `link.color` is `None`).
+
+```rust
+pub fn with_per_link_colors(self) -> Self
+```
+
+## Layout Configuration
+
+### with_link_opacity
+
+Set the ribbon fill opacity.
+
+```rust
+pub fn with_link_opacity(self, opacity: f64) -> Self
+```
+
+<ParamField path="opacity" type="f64">
+  Opacity from `0.0` to `1.0` (default: `0.5`)
+</ParamField>
+
+---
+
+### with_node_width
+
+Set the node rectangle width in pixels.
+
+```rust
+pub fn with_node_width(self, width: f64) -> Self
+```
+
+<ParamField path="width" type="f64">
+  Node width in pixels (default: `20.0`)
+</ParamField>
+
+---
+
+### with_node_gap
+
+Set the minimum gap between nodes in a column in pixels.
+
+```rust
+pub fn with_node_gap(self, gap: f64) -> Self
+```
+
+<ParamField path="gap" type="f64">
+  Gap in pixels (default: `8.0`)
+</ParamField>
+
+## Legend
+
+### with_legend
+
+Enable a node legend.
+
+```rust
+pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+```
+
+<ParamField path="label" type="String">
+  Legend label
+</ParamField>
+
+Adds one legend entry per node.
+
+## Full Example
+
+```rust
+use kuva::plot::SankeyPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let sankey = SankeyPlot::new()
+    .with_node_color("Raw", "steelblue")
+    .with_node_color("QC Pass", "seagreen")
+    .with_node_color("QC Fail", "firebrick")
+    .with_node_color("Mapped", "goldenrod")
+    .with_link("Raw", "QC Pass", 850.0)
+    .with_link("Raw", "QC Fail", 150.0)
+    .with_link("QC Pass", "Mapped", 800.0)
+    .with_legend("Pipeline stages");
+
+let plots = vec![Plot::Sankey(sankey)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Sequencing Pipeline Flow");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("sankey.svg", svg).unwrap();
+```

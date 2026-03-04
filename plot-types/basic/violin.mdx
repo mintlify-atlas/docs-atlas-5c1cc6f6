@@ -1,0 +1,295 @@
+---
+title: Violin Plot
+description: Kernel density estimation revealing distribution shape, multimodality, and skewness
+---
+
+Violin plots estimate the probability density of each group using kernel density estimation (KDE) and render the result as a symmetric shape—wider where data is dense, narrower where it is sparse. Unlike box plots, violins reveal multimodal and skewed distributions, making them ideal for exploring complex data structures.
+
+## When to Use
+
+- Revealing the full shape of distributions (not just quartiles)
+- Detecting multimodal distributions (data with multiple peaks)
+- Comparing distribution shapes across groups
+- Showing skewness and asymmetry clearly
+- Visualizing larger datasets where individual points would clutter
+
+## Basic Example
+
+```rust
+use kuva::plot::ViolinPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = ViolinPlot::new()
+    .with_group("Control", vec![4.1, 5.0, 5.3, 5.8, 6.2, 7.0, 5.5, 4.8])
+    .with_group("Treated", vec![5.5, 6.1, 6.4, 7.2, 7.8, 8.5, 6.9, 7.0])
+    .with_color("steelblue")
+    .with_width(30.0);
+
+let plots = vec![Plot::Violin(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Control vs. Treated")
+    .with_x_label("Group")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("violin.svg", svg).unwrap();
+```
+
+## Key Methods
+
+### Data Input
+
+<ParamField path="with_group" type="method">
+  Add a group (one violin) with a label and raw values:
+  
+  ```rust
+  .with_group("Control", vec![4.1, 5.0, 5.3, 5.8, 6.2, 7.0])
+  .with_group("Treated", vec![5.5, 6.1, 6.4, 7.2, 7.8, 8.5])
+  ```
+  
+  Groups are rendered left-to-right in the order added. More data points produce a smoother, more accurate density estimate (aim for 50+ points per group).
+</ParamField>
+
+### Styling
+
+<ParamField path="with_color" type="method">
+  Set the violin fill color:
+  
+  ```rust
+  .with_color("steelblue")
+  .with_color("#4682b4")
+  ```
+</ParamField>
+
+<ParamField path="with_width" type="method">
+  Set the maximum half-width of each violin in pixels (default `30.0`):
+  
+  ```rust
+  .with_width(40.0)  // Wider violins
+  .with_width(20.0)  // Narrower violins
+  ```
+  
+  The widest point of the violin is scaled to this value. Note this is in **pixel units**, unlike bar width which is fractional.
+</ParamField>
+
+### KDE Parameters
+
+<ParamField path="with_bandwidth" type="method">
+  Set the KDE bandwidth manually:
+  
+  ```rust
+  .with_bandwidth(0.5)  // Tighter bandwidth = more detail
+  ```
+  
+  Bandwidth controls smoothness:
+  - **Smaller values** reveal finer structure but may be noisy
+  - **Larger values** produce smoother shapes but may hide modes
+  - **Default** (when not set): Silverman's rule-of-thumb, a good starting point for unimodal, roughly normal data
+</ParamField>
+
+<ParamField path="with_kde_samples" type="method">
+  Set the number of points at which KDE is evaluated (default `200`):
+  
+  ```rust
+  .with_kde_samples(300)  // Smoother curve
+  ```
+  
+  Higher values produce smoother outlines at the cost of slightly more computation. The default is adequate for most cases.
+</ParamField>
+
+### Overlays
+
+<ParamField path="with_strip" type="method">
+  Overlay individual data points as a jittered strip:
+  
+  ```rust
+  .with_strip(0.15)  // jitter = horizontal spread in data units
+  ```
+  
+  Typical values: `0.15`–`0.2`. Use semi-transparent color (`.with_overlay_color()`) so the violin shape remains visible.
+</ParamField>
+
+<ParamField path="with_swarm_overlay" type="method">
+  Overlay individual points as a beeswarm:
+  
+  ```rust
+  .with_swarm_overlay()
+  ```
+  
+  Points spread horizontally to avoid overlap. Works best with smaller datasets (N < 200 per group).
+</ParamField>
+
+<ParamField path="with_overlay_color" type="method">
+  Set the fill color for overlay points (default `"rgba(0,0,0,0.45)"`):
+  
+  ```rust
+  .with_overlay_color("rgba(0,0,0,0.35)")
+  ```
+</ParamField>
+
+<ParamField path="with_overlay_size" type="method">
+  Set the radius of overlay points in pixels (default `3.0`):
+  
+  ```rust
+  .with_overlay_size(2.5)
+  ```
+</ParamField>
+
+### Legend
+
+<ParamField path="with_legend" type="method">
+  Attach a legend label:
+  
+  ```rust
+  .with_legend("Experimental group")
+  ```
+</ParamField>
+
+## Examples
+
+### Basic Violin Plot
+
+```rust
+use rand::SeedableRng;
+use rand_distr::{Distribution, Normal, Exp};
+
+fn normal_samples(mean: f64, std: f64, n: usize, seed: u64) -> Vec<f64> {
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
+    Normal::new(mean, std).unwrap()
+        .sample_iter(&mut rng)
+        .take(n)
+        .collect()
+}
+
+fn bimodal_samples(mean1: f64, mean2: f64, std: f64, n: usize, seed: u64) -> Vec<f64> {
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
+    let d1 = Normal::new(mean1, std).unwrap();
+    let d2 = Normal::new(mean2, std).unwrap();
+    let half = n / 2;
+    d1.sample_iter(&mut rng.clone()).take(half)
+        .chain(d2.sample_iter(&mut rng).take(n - half))
+        .collect()
+}
+
+let plot = ViolinPlot::new()
+    .with_group("Normal",  normal_samples(0.0, 1.0, 500, 1))
+    .with_group("Bimodal", bimodal_samples(-2.0, 2.0, 0.6, 500, 2))
+    .with_color("steelblue")
+    .with_width(30.0);
+```
+
+### Custom Bandwidth
+
+```rust
+let data = normal_samples(0.0, 1.0, 300, 42);
+
+// Narrow bandwidth - reveals more detail
+let plot_narrow = ViolinPlot::new()
+    .with_group("", data.clone())
+    .with_color("steelblue")
+    .with_bandwidth(0.15);
+
+// Wide bandwidth - very smooth
+let plot_wide = ViolinPlot::new()
+    .with_group("", data)
+    .with_color("steelblue")
+    .with_bandwidth(2.0);
+```
+
+### Violin with Swarm Overlay
+
+```rust
+let plot = ViolinPlot::new()
+    .with_group("Normal",  normal_samples(0.0, 1.0, 120, 1))
+    .with_group("Bimodal", bimodal_samples(-2.0, 2.0, 0.6, 120, 2))
+    .with_color("steelblue")
+    .with_width(30.0)
+    .with_swarm_overlay()
+    .with_overlay_color("rgba(0,0,0,0.35)")
+    .with_overlay_size(2.5);
+```
+
+### Comparing Distribution Shapes
+
+```rust
+fn skewed_samples(n: usize, seed: u64) -> Vec<f64> {
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
+    Exp::new(0.8).unwrap()
+        .sample_iter(&mut rng)
+        .take(n)
+        .collect()
+}
+
+let plot = ViolinPlot::new()
+    .with_group("Normal",  normal_samples(0.0, 1.0, 500, 1))
+    .with_group("Bimodal", bimodal_samples(-2.0, 2.0, 0.6, 500, 2))
+    .with_group("Skewed",  skewed_samples(500, 3))
+    .with_color("steelblue")
+    .with_width(30.0);
+```
+
+## Understanding Violin Plots
+
+### What KDE Does
+
+Kernel Density Estimation (KDE) places a small "kernel" (usually a Gaussian bump) at each data point, then sums all kernels to create a smooth continuous density estimate:
+
+- **Wide regions**: Many data points nearby (high density)
+- **Narrow regions**: Few data points (low density)
+- **Symmetric shape**: Violins are mirrored horizontally for visual balance
+
+### Bandwidth Selection
+
+Bandwidth (h) controls the kernel width:
+
+- **Too small**: Noisy, reveals spurious modes
+- **Too large**: Over-smoothed, hides real structure
+- **Silverman's rule** (default): `h = 0.9 * min(std, IQR/1.34) * n^(-1/5)` — works well for unimodal data
+
+### Reading Violins
+
+- **Width at y**: Proportional to density of data at that value
+- **Multiple bulges**: Suggest multimodal distribution
+- **Asymmetry**: Indicates skewness
+- **Thin tails**: Rare values at the extremes
+
+## Tips
+
+<Tip>
+  **When to use**: Choose violins over box plots when you suspect your data has multiple modes, heavy skew, or other interesting structure beyond quartiles.
+</Tip>
+
+<Tip>
+  **Sample size**: Aim for 50+ points per group for reliable density estimates. With fewer points, consider strip plots or box plots instead.
+</Tip>
+
+<Tip>
+  **Bandwidth tuning**: If the default Silverman bandwidth looks too smooth or too rough, adjust with `.with_bandwidth()`. Try values ±50% of the default.
+</Tip>
+
+<Tip>
+  **Overlays with small N**: When N < 200 per group, add `.with_swarm_overlay()` to show the actual data points alongside the density estimate.
+</Tip>
+
+<Warning>
+  KDE can show density where no data exists, especially in the tails. The violin extends slightly beyond the actual data range. Overlays help reveal the true data extent.
+</Warning>
+
+<Note>
+  Violins are always symmetric (mirrored horizontally) even though the underlying density is one-sided. This is a visualization convention to save horizontal space and emphasize shape.
+</Note>
+
+## Alternatives
+
+- **Box plots** - Simpler, show quartiles and outliers; better for many groups or quick summaries
+- **Histograms** - Better for single distributions where you want to see exact bin counts
+- **Strip plots** - Show every individual point without smoothing
+- **Ridgeline plots** - Multiple density curves offset vertically (not yet in Kuva)
+
+## Source Location
+
+Implementation: `src/plot/violin.rs`  
+Examples: `examples/violin.rs`

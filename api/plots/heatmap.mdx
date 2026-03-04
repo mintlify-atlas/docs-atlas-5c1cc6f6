@@ -1,0 +1,180 @@
+---
+title: Heatmap
+description: API reference for heatmap plots with customizable colormaps
+---
+
+Renders a two-dimensional grid of colored cells. Cell color encodes the numeric value — each cell is mapped through a `ColorMap` after normalizing values to `[0.0, 1.0]` relative to the data range. A colorbar is always shown in the right margin.
+
+## Constructor
+
+### `new()`
+
+Create a heatmap with default settings.
+
+**Returns:** `Heatmap`
+
+**Defaults:**
+- Viridis color map
+- No value overlay
+- No labels
+
+```rust
+use kuva::plot::Heatmap;
+
+let heatmap = Heatmap::new();
+```
+
+## Data Loading
+
+### `with_data()`
+
+Set the grid data.
+
+<ParamField path="data" type="I: IntoIterator<Item = T>">
+  Accepts any iterable of iterables of numeric values. The outer iterator produces rows (top to bottom); the inner iterator produces columns (left to right). All rows must have the same number of columns.
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let heatmap = Heatmap::new().with_data(vec![
+    vec![1.0, 2.0, 3.0],
+    vec![4.0, 5.0, 6.0],
+]);
+```
+
+## Labels
+
+### `with_labels()`
+
+Store row and column label strings in the struct.
+
+<ParamField path="rows" type="Vec<String>">
+  Row label strings
+</ParamField>
+
+<ParamField path="cols" type="Vec<String>">
+  Column label strings
+</ParamField>
+
+**Returns:** `Self`
+
+**Note:** These labels are **not** rendered automatically. To display them on the axes, pass them to `Layout::with_y_categories` (rows) and `Layout::with_x_categories` (columns) when building the layout.
+
+```rust
+let heatmap = Heatmap::new()
+    .with_data(vec![vec![1.0, 2.0], vec![3.0, 4.0]])
+    .with_labels(
+        vec!["Row1".into(), "Row2".into()],
+        vec!["Col1".into(), "Col2".into()]
+    );
+```
+
+## Styling
+
+### `with_color_map()`
+
+Set the color map used to encode cell values.
+
+<ParamField path="map" type="ColorMap">
+  Color map applied after normalizing values to `[0.0, 1.0]`. Options: `ColorMap::Viridis` (default), `ColorMap::Inferno`, `ColorMap::Grayscale`, or `ColorMap::Custom(Arc<Fn>)`
+</ParamField>
+
+**Returns:** `Self`
+
+**Default:** `ColorMap::Viridis`
+
+```rust
+use kuva::plot::ColorMap;
+
+let heatmap = Heatmap::new()
+    .with_data(vec![vec![1.0, 2.0], vec![3.0, 4.0]])
+    .with_color_map(ColorMap::Inferno);
+```
+
+### `with_values()`
+
+Overlay numeric values inside each cell.
+
+**Returns:** `Self`
+
+Values are formatted to two decimal places and centered in the cell. Most useful for small grids where the text remains legible.
+
+```rust
+let heatmap = Heatmap::new()
+    .with_data(vec![vec![1.0, 2.0], vec![3.0, 4.0]])
+    .with_values();
+```
+
+## Legend
+
+### `with_legend()`
+
+Attach a legend label to this heatmap.
+
+<ParamField path="label" type="S: Into<String>">
+  Legend label text
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let heatmap = Heatmap::new()
+    .with_data(vec![vec![1.0, 2.0], vec![3.0, 4.0]])
+    .with_legend("Expression");
+```
+
+## Complete Example
+
+```rust
+use kuva::plot::{Heatmap, ColorMap};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data = vec![
+    vec![0.8, 0.3, 0.9],
+    vec![0.4, 0.7, 0.1],
+    vec![0.5, 0.9, 0.4],
+];
+
+let heatmap = Heatmap::new()
+    .with_data(data)
+    .with_color_map(ColorMap::Viridis);
+
+let plots = vec![Plot::Heatmap(heatmap)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Heatmap")
+    .with_x_categories(vec!["A".into(), "B".into(), "C".into()])
+    .with_y_categories(vec!["X".into(), "Y".into(), "Z".into()]);
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("heatmap.svg", svg).unwrap();
+```
+
+## Public Fields
+
+<ParamField path="data" type="Vec<Vec<f64>>">
+  Rows × columns grid of values. All rows must have the same length.
+</ParamField>
+
+<ParamField path="row_labels" type="Option<Vec<String>>">
+  Optional row labels — stored in the struct but rendered via `Layout::with_y_categories`
+</ParamField>
+
+<ParamField path="col_labels" type="Option<Vec<String>>">
+  Optional column labels — stored in the struct but rendered via `Layout::with_x_categories`
+</ParamField>
+
+<ParamField path="color_map" type="ColorMap">
+  Color map applied after normalizing values to `[0.0, 1.0]`. Defaults to `ColorMap::Viridis`
+</ParamField>
+
+<ParamField path="show_values" type="bool">
+  When `true`, each cell displays its raw numeric value as text
+</ParamField>
+
+<ParamField path="legend_label" type="Option<String>">
+  Optional legend label
+</ParamField>

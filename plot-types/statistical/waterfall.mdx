@@ -1,0 +1,222 @@
+---
+title: WaterfallPlot
+description: Floating bars showing cumulative changes through a sequence of increments and decrements
+---
+
+A waterfall chart shows a running total as a sequence of floating bars. Each bar extends from the previous accumulated value, rising for positive deltas (green) and falling for negative deltas (red). Optional **Total** bars reset to zero and show the accumulated value, useful for intermediate subtotals.
+
+## When to Use
+
+- **Financial statements**: Show revenue breakdown to net income
+- **Budget variance**: Track planned vs actual spending across categories
+- **Inventory changes**: Visualize additions and withdrawals over time
+- **Performance attribution**: Break down total performance into contributing factors
+- **Cumulative impact**: Display how components sum to a final result
+
+## Basic Example
+
+```rust
+use kuva::plot::WaterfallPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue",       850.0)
+    .with_delta("Cost of goods",-340.0)
+    .with_total("Gross profit")
+    .with_delta("Operating costs",-200.0)
+    .with_delta("Tax",           -65.0)
+    .with_total("Net income")
+    .with_connectors()
+    .with_values();
+
+let plots = vec![Plot::Waterfall(wf)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Income Statement")
+    .with_x_label("Stage")
+    .with_y_label("USD (thousands)");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("waterfall.svg", svg).unwrap();
+```
+
+## Bar Types
+
+### Delta Bars
+
+#### `with_delta(label: impl Into<String>, value: f64)`
+
+Add a floating delta bar. The bar spans from the current running total to `current + value`. Positive values are colored green; negative values red.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue",  850.0)
+    .with_delta("COGS",    -340.0)
+    .with_delta("OpEx",    -200.0);
+```
+
+### Total Bars
+
+#### `with_total(label: impl Into<String>)`
+
+Add a summary bar that spans from zero to the current running total. Rendered in `color_total` (default `"steelblue"`). Place after delta bars to show a subtotal or at the end for the final result.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue",  850.0)
+    .with_delta("COGS",    -340.0)
+    .with_total("Gross profit")    // subtotal
+    .with_delta("OpEx",    -200.0)
+    .with_total("Net income");     // final total
+```
+
+### Difference Bars
+
+#### `with_difference(label: impl Into<String>, from: f64, to: f64)`
+
+Add a standalone comparison bar anchored at explicit y-values. The bar spans `[from, to]` and is green when `to > from`, red when `to < from`. It does **not** affect the running total — purely illustrative.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Start", 1000.0)
+    .with_delta("Change",  150.0)
+    .with_difference("vs target", 1000.0, 1200.0)  // independent reference
+    .with_total("End");
+```
+
+Useful for annotating period-over-period changes at a specific reference level.
+
+## Key Methods
+
+### `with_bar_width(width: f64)`
+
+Set bar width as a fraction of the category slot (default `0.6`).
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_bar_width(0.7);
+```
+
+### `with_color_positive(color: impl Into<String>)`
+
+Set color for positive delta bars (default `"rgb(68,170,68)"` — green).
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_color_positive("#00c896");
+```
+
+### `with_color_negative(color: impl Into<String>)`
+
+Set color for negative delta bars (default `"rgb(204,68,68)"` — red).
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_color_negative("#ff4560");
+```
+
+### `with_color_total(color: impl Into<String>)`
+
+Set color for total/subtotal bars (default `"steelblue"`).
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_color_total("navy");
+```
+
+### `with_connectors()`
+
+Draw dashed connector lines between the top (or bottom) of consecutive bars. Helps trace the running total across wide charts.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("A", 100.0)
+    .with_delta("B", -50.0)
+    .with_connectors();
+```
+
+### `with_values()`
+
+Print numeric values as text labels on each bar. Delta bars show their `value`; total bars show the accumulated total; difference bars show `to - from`.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue", 850.0)
+    .with_delta("COGS", -340.0)
+    .with_values();
+```
+
+### `with_legend(label: impl Into<String>)`
+
+Attach a legend label to the waterfall chart.
+
+## Examples
+
+### Income Statement Breakdown
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue",        850.0)
+    .with_delta("Cost of goods", -340.0)
+    .with_total("Gross profit")
+    .with_delta("Operating costs", -200.0)
+    .with_delta("Tax",             -65.0)
+    .with_total("Net income")
+    .with_connectors()
+    .with_values();
+
+let plots = vec![Plot::Waterfall(wf)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Income Statement")
+    .with_x_label("Stage")
+    .with_y_label("USD (thousands)");
+```
+
+Shows revenue, costs, and profit stages with intermediate subtotals.
+
+### Budget Variance
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Budget",        5000.0)
+    .with_delta("Savings",        150.0)
+    .with_delta("Overrun dept A", -80.0)
+    .with_delta("Overrun dept B",-120.0)
+    .with_total("Actual")
+    .with_connectors()
+    .with_values();
+
+let plots = vec![Plot::Waterfall(wf)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Budget Variance Analysis")
+    .with_y_label("USD");
+```
+
+Positive = savings; negative = overrun.
+
+### Comparison with Reference
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Q1 Sales",    1000.0)
+    .with_delta("Q2 Growth",    150.0)
+    .with_delta("Q3 Growth",     80.0)
+    .with_difference("vs Target", 1000.0, 1300.0)  // target was 1300
+    .with_total("Q3 Actual")
+    .with_connectors()
+    .with_values();
+
+let plots = vec![Plot::Waterfall(wf)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Sales Performance vs Target")
+    .with_y_label("Units");
+```
+
+The difference bar shows the gap to target without affecting the running total.
+
+## See Also
+
+- [BarPlot](/plot-types/basic/bar) — For simple categorical bar charts
+- [StackedBarPlot](/plot-types/basic/stacked-bar) — For cumulative bars without floating

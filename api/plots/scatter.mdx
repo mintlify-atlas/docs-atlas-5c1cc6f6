@@ -1,0 +1,272 @@
+---
+title: ScatterPlot
+description: API reference for ScatterPlot - scatter plots with error bars, trend lines, and bubble charts
+---
+
+## ScatterPlot
+
+Builder for creating scatter plots from (x, y) data. Supports error bars, trend lines, confidence bands, variable point sizes (bubble plots), and six marker shapes.
+
+### Constructor
+
+<ParamField path="ScatterPlot::new()" type="Self">
+  Create a scatter plot with default settings.
+  
+  **Defaults:**
+  - Color: `"black"`
+  - Size: `3.0` pixels
+  - Marker: [`MarkerShape::Circle`](#markershape)
+  - No trend line
+  - No legend label
+</ParamField>
+
+### Data Methods
+
+<ParamField path="with_data" type="Self">
+  ```rust
+  pub fn with_data<T, U, I>(self, points: I) -> Self
+  where
+      I: IntoIterator<Item = (T, U)>,
+      T: Into<f64>,
+      U: Into<f64>
+  ```
+  
+  Set the (x, y) data points. Accepts any iterator of `(T, U)` pairs where `T` and `U` implement `Into<f64>`, so integer and float types all work without casting.
+  
+  **Example:**
+  ```rust
+  let plot = ScatterPlot::new()
+      .with_data(vec![(1_i32, 5_i32), (2, 8), (3, 6)]);
+  ```
+</ParamField>
+
+<ParamField path="with_x_err" type="Self">
+  ```rust
+  pub fn with_x_err<T, I>(self, errors: I) -> Self
+  where
+      I: IntoIterator<Item = T>,
+      T: Into<f64> + Copy
+  ```
+  
+  Set symmetric X error bars. Each value is the half-width of the error bar (i.e. the bar extends ± value from the point). Must be called after `with_data`.
+</ParamField>
+
+<ParamField path="with_x_err_asymmetric" type="Self">
+  ```rust
+  pub fn with_x_err_asymmetric<T, U, I>(self, errors: I) -> Self
+  where
+      I: IntoIterator<Item = (T, U)>,
+      T: Into<f64>,
+      U: Into<f64>
+  ```
+  
+  Set asymmetric X error bars. Each item is a `(negative_arm, positive_arm)` tuple. Must be called after `with_data`.
+</ParamField>
+
+<ParamField path="with_y_err" type="Self">
+  ```rust
+  pub fn with_y_err<T, I>(self, errors: I) -> Self
+  where
+      I: IntoIterator<Item = T>,
+      T: Into<f64> + Copy
+  ```
+  
+  Set symmetric Y error bars. Each value is the half-height of the error bar. Must be called after `with_data`.
+</ParamField>
+
+<ParamField path="with_y_err_asymmetric" type="Self">
+  ```rust
+  pub fn with_y_err_asymmetric<T, U, I>(self, errors: I) -> Self
+  where
+      I: IntoIterator<Item = (T, U)>,
+      T: Into<f64>,
+      U: Into<f64>
+  ```
+  
+  Set asymmetric Y error bars. Each item is a `(negative_arm, positive_arm)` tuple. Must be called after `with_data`.
+</ParamField>
+
+### Styling Methods
+
+<ParamField path="with_color" type="Self">
+  ```rust
+  pub fn with_color<S: Into<String>>(self, color: S) -> Self
+  ```
+  
+  Set the point color. Accepts CSS color strings (e.g. `"steelblue"`, `"#4477aa"`).
+</ParamField>
+
+<ParamField path="with_size" type="Self">
+  ```rust
+  pub fn with_size(self, size: f64) -> Self
+  ```
+  
+  Set the uniform point radius in pixels (default `3.0`). For per-point radii use `with_sizes`.
+</ParamField>
+
+<ParamField path="with_marker" type="Self">
+  ```rust
+  pub fn with_marker(self, marker: MarkerShape) -> Self
+  ```
+  
+  Set the marker shape (default [`MarkerShape::Circle`](#markershape)).
+</ParamField>
+
+<ParamField path="with_sizes" type="Self">
+  ```rust
+  pub fn with_sizes<T, I>(self, sizes: I) -> Self
+  where
+      I: IntoIterator<Item = T>,
+      T: Into<f64>
+  ```
+  
+  Set per-point radii for a bubble plot. Values are radii in pixels. When set, the uniform `size` value from `with_size` is ignored.
+  
+  **Example:**
+  ```rust
+  let data = vec![(1.0_f64, 2.0_f64), (3.0, 4.0), (5.0, 3.0)];
+  let sizes = vec![5.0_f64, 12.0, 8.0];
+  
+  let plot = ScatterPlot::new()
+      .with_data(data)
+      .with_sizes(sizes)
+      .with_color("steelblue");
+  ```
+</ParamField>
+
+### Trend Line Methods
+
+<ParamField path="with_trend" type="Self">
+  ```rust
+  pub fn with_trend(self, trend: TrendLine) -> Self
+  ```
+  
+  Overlay a trend line computed from the scatter data. See [`TrendLine`](#trendline) for available options.
+</ParamField>
+
+<ParamField path="with_trend_color" type="Self">
+  ```rust
+  pub fn with_trend_color<S: Into<String>>(self, color: S) -> Self
+  ```
+  
+  Set the trend line color (default `"black"`).
+</ParamField>
+
+<ParamField path="with_trend_width" type="Self">
+  ```rust
+  pub fn with_trend_width(self, width: f64) -> Self
+  ```
+  
+  Set the trend line stroke width in pixels (default `1.0`).
+</ParamField>
+
+<ParamField path="with_equation" type="Self">
+  ```rust
+  pub fn with_equation(self) -> Self
+  ```
+  
+  Annotate the plot with the regression equation (y = mx + b). Requires a trend line to be set via `with_trend`.
+</ParamField>
+
+<ParamField path="with_correlation" type="Self">
+  ```rust
+  pub fn with_correlation(self) -> Self
+  ```
+  
+  Annotate the plot with the Pearson R² value. Requires a trend line to be set via `with_trend`.
+</ParamField>
+
+### Band & Legend Methods
+
+<ParamField path="with_band" type="Self">
+  ```rust
+  pub fn with_band<T, U, I1, I2>(self, y_lower: I1, y_upper: I2) -> Self
+  where
+      I1: IntoIterator<Item = T>,
+      I2: IntoIterator<Item = U>,
+      T: Into<f64>,
+      U: Into<f64>
+  ```
+  
+  Attach a shaded confidence band aligned to the scatter x positions. `y_lower` and `y_upper` must have the same length as the data. The band color matches the scatter series color.
+  
+  **Example:**
+  ```rust
+  let data = vec![(1.0_f64, 2.0_f64), (2.0, 4.0), (3.0, 6.0)];
+  let lower = vec![1.5_f64, 3.5, 5.5];
+  let upper = vec![2.5_f64, 4.5, 6.5];
+  
+  let plot = ScatterPlot::new()
+      .with_data(data)
+      .with_color("steelblue")
+      .with_band(lower, upper);
+  ```
+</ParamField>
+
+<ParamField path="with_legend" type="Self">
+  ```rust
+  pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+  ```
+  
+  Attach a legend label to this series. A legend is rendered automatically when at least one series in the plot has a label.
+</ParamField>
+
+## Enums & Types
+
+### MarkerShape
+
+Marker shape used to render individual scatter points. Default is `Circle`.
+
+- `Circle` - Circular markers (default)
+- `Square` - Square markers
+- `Triangle` - Triangle markers
+- `Diamond` - Diamond markers
+- `Cross` - Cross markers
+- `Plus` - Plus sign markers
+
+### TrendLine
+
+Trend line variant to overlay on a scatter plot.
+
+- `Linear` - Ordinary least-squares linear fit: y = mx + b
+
+### ScatterPoint
+
+A single (x, y) data point with optional asymmetric error bars.
+
+**Fields:**
+- `x: f64` - X coordinate
+- `y: f64` - Y coordinate
+- `x_err: Option<(f64, f64)>` - X error bars as (negative_half, positive_half)
+- `y_err: Option<(f64, f64)>` - Y error bars as (negative_half, positive_half)
+
+## Complete Example
+
+```rust
+use kuva::plot::scatter::{ScatterPlot, MarkerShape, TrendLine};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data = vec![(1.0_f64, 2.0_f64), (3.0, 5.0), (5.0, 4.0)];
+
+let plot = ScatterPlot::new()
+    .with_data(data)
+    .with_color("steelblue")
+    .with_size(5.0)
+    .with_marker(MarkerShape::Circle)
+    .with_trend(TrendLine::Linear)
+    .with_trend_color("crimson")
+    .with_equation()
+    .with_correlation();
+
+let plots = vec![Plot::Scatter(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("My Scatter Plot")
+    .with_x_label("X")
+    .with_y_label("Y");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("scatter.svg", svg).unwrap();
+```

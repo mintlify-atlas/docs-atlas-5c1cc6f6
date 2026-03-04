@@ -1,0 +1,339 @@
+---
+title: Scatter Plot
+description: Plot individual (x, y) data points with markers, error bars, trend lines, and confidence bands
+---
+
+Scatter plots visualize the relationship between two continuous variables by placing individual data points at (x, y) coordinates. Kuva's `ScatterPlot` supports six marker shapes, per-point sizing for bubble plots, symmetric and asymmetric error bars, linear trend lines with equations, and shaded confidence bands.
+
+## When to Use
+
+- Exploring relationships between two continuous variables
+- Identifying correlation patterns
+- Detecting outliers and clusters
+- Showing measurement uncertainty with error bars
+- Creating bubble plots where point size encodes a third variable
+
+## Basic Example
+
+```rust
+use kuva::plot::scatter::ScatterPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let data = vec![
+    (0.5_f64, 1.2_f64),
+    (1.4, 3.1),
+    (2.1, 2.4),
+    (3.3, 5.0),
+    (4.0, 4.3),
+    (5.2, 6.8),
+];
+
+let plot = ScatterPlot::new()
+    .with_data(data)
+    .with_color("steelblue")
+    .with_size(5.0);
+
+let plots = vec![Plot::Scatter(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Scatter Plot")
+    .with_x_label("X")
+    .with_y_label("Y");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("scatter.svg", svg).unwrap();
+```
+
+## Key Methods
+
+### Data Input
+
+<ParamField path="with_data" type="method">
+  Set the (x, y) data points. Accepts any iterator of `(T, U)` pairs where `T` and `U` implement `Into<f64>`:
+  
+  ```rust
+  // Works with integers
+  .with_data(vec![(1_i32, 5_i32), (2, 8), (3, 6)])
+  
+  // Works with floats
+  .with_data(vec![(1.0_f64, 2.0_f64), (3.0, 5.0)])
+  ```
+</ParamField>
+
+### Styling
+
+<ParamField path="with_color" type="method">
+  Set the point color using CSS color strings:
+  
+  ```rust
+  .with_color("steelblue")     // Named colors
+  .with_color("#4682b4")       // Hex codes
+  .with_color("rgb(70,130,180)") // RGB
+  ```
+</ParamField>
+
+<ParamField path="with_size" type="method">
+  Set the uniform point radius in pixels (default `3.0`):
+  
+  ```rust
+  .with_size(5.0)  // Larger points
+  ```
+</ParamField>
+
+<ParamField path="with_marker" type="method">
+  Choose from six marker shapes:
+  
+  ```rust
+  use kuva::plot::scatter::MarkerShape;
+  
+  .with_marker(MarkerShape::Circle)    // Default
+  .with_marker(MarkerShape::Square)
+  .with_marker(MarkerShape::Triangle)
+  .with_marker(MarkerShape::Diamond)
+  .with_marker(MarkerShape::Cross)
+  .with_marker(MarkerShape::Plus)
+  ```
+</ParamField>
+
+### Error Bars
+
+<ParamField path="with_x_err" type="method">
+  Add symmetric X error bars (half-width values):
+  
+  ```rust
+  let x_err = vec![0.2_f64, 0.15, 0.3];
+  .with_x_err(x_err)
+  ```
+</ParamField>
+
+<ParamField path="with_y_err" type="method">
+  Add symmetric Y error bars:
+  
+  ```rust
+  let y_err = vec![0.6_f64, 0.8, 0.4];
+  .with_y_err(y_err)
+  ```
+</ParamField>
+
+<ParamField path="with_x_err_asymmetric" type="method">
+  Add asymmetric X error bars with `(negative_arm, positive_arm)` tuples:
+  
+  ```rust
+  let x_err = vec![(0.1_f64, 0.3_f64), (0.15, 0.25)];
+  .with_x_err_asymmetric(x_err)
+  ```
+</ParamField>
+
+<ParamField path="with_y_err_asymmetric" type="method">
+  Add asymmetric Y error bars:
+  
+  ```rust
+  let y_err = vec![(0.5_f64, 0.8_f64), (0.6, 0.9)];
+  .with_y_err_asymmetric(y_err)
+  ```
+</ParamField>
+
+### Trend Lines
+
+<ParamField path="with_trend" type="method">
+  Overlay a linear regression trend line:
+  
+  ```rust
+  use kuva::plot::scatter::TrendLine;
+  
+  .with_trend(TrendLine::Linear)
+  ```
+</ParamField>
+
+<ParamField path="with_trend_color" type="method">
+  Set trend line color (default `"black"`):
+  
+  ```rust
+  .with_trend_color("crimson")
+  ```
+</ParamField>
+
+<ParamField path="with_equation" type="method">
+  Annotate with regression equation (y = mx + b):
+  
+  ```rust
+  .with_trend(TrendLine::Linear)
+  .with_equation()
+  ```
+</ParamField>
+
+<ParamField path="with_correlation" type="method">
+  Annotate with Pearson R² correlation coefficient:
+  
+  ```rust
+  .with_trend(TrendLine::Linear)
+  .with_correlation()
+  ```
+</ParamField>
+
+<ParamField path="with_trend_width" type="method">
+  Set trend line stroke width in pixels (default `1.0`):
+  
+  ```rust
+  .with_trend_width(2.0)
+  ```
+</ParamField>
+
+### Confidence Bands
+
+<ParamField path="with_band" type="method">
+  Add a shaded confidence region:
+  
+  ```rust
+  let lower = vec![1.5_f64, 3.5, 5.5];
+  let upper = vec![2.5_f64, 4.5, 6.5];
+  
+  .with_band(lower, upper)
+  ```
+  
+  The band color matches the scatter series color automatically.
+</ParamField>
+
+### Bubble Plots
+
+<ParamField path="with_sizes" type="method">
+  Set per-point radii for bubble plots (overrides uniform size):
+  
+  ```rust
+  let sizes = vec![5.0_f64, 12.0, 8.0, 18.0];
+  .with_sizes(sizes)
+  ```
+</ParamField>
+
+### Legend
+
+<ParamField path="with_legend" type="method">
+  Attach a legend label for this series:
+  
+  ```rust
+  .with_legend("Experimental data")
+  ```
+  
+  A legend renders automatically when at least one plot has a label.
+</ParamField>
+
+## Examples
+
+### Scatter with Trend Line
+
+```rust
+let data = vec![
+    (1.0_f64, 2.1_f64), (2.0, 3.9), (3.0, 6.2),
+    (4.0, 7.8), (5.0, 10.1), (6.0, 12.3),
+];
+
+let plot = ScatterPlot::new()
+    .with_data(data)
+    .with_color("steelblue")
+    .with_size(5.0)
+    .with_trend(TrendLine::Linear)
+    .with_trend_color("crimson")
+    .with_equation()
+    .with_correlation();
+```
+
+### Scatter with Error Bars
+
+```rust
+let data = vec![
+    (1.0_f64, 2.0_f64),
+    (2.0, 4.5),
+    (3.0, 5.8),
+    (4.0, 8.2),
+    (5.0, 10.1),
+];
+let x_err = vec![0.2_f64, 0.15, 0.3, 0.1, 0.25];
+let y_err = vec![0.6_f64, 0.8, 0.4, 0.9, 0.5];
+
+let plot = ScatterPlot::new()
+    .with_data(data)
+    .with_x_err(x_err)
+    .with_y_err(y_err)
+    .with_color("steelblue")
+    .with_size(5.0);
+```
+
+### Bubble Plot
+
+```rust
+let data = vec![
+    (1.0_f64, 3.0_f64),
+    (2.5, 6.5),
+    (4.0, 4.0),
+    (5.5, 8.0),
+];
+let sizes = vec![5.0_f64, 14.0, 9.0, 18.0];
+
+let plot = ScatterPlot::new()
+    .with_data(data)
+    .with_sizes(sizes)  // Variable point sizes
+    .with_color("steelblue");
+```
+
+### Multiple Series with Markers
+
+```rust
+let plots: Vec<Plot> = vec![
+    Plot::Scatter(
+        ScatterPlot::new()
+            .with_data(vec![(1.0, 2.0), (2.0, 4.0), (3.0, 3.0)])
+            .with_color("steelblue")
+            .with_marker(MarkerShape::Circle)
+            .with_legend("Series A")
+    ),
+    Plot::Scatter(
+        ScatterPlot::new()
+            .with_data(vec![(1.0, 3.0), (2.0, 2.5), (3.0, 4.5)])
+            .with_color("crimson")
+            .with_marker(MarkerShape::Square)
+            .with_legend("Series B")
+    ),
+];
+```
+
+### Confidence Band
+
+```rust
+let xs: Vec<f64> = (1..=10).map(|i| i as f64).collect();
+let ys: Vec<f64> = xs.iter().map(|&x| x * 1.8 + 0.5).collect();
+let lower: Vec<f64> = ys.iter().map(|&y| y - 1.2).collect();
+let upper: Vec<f64> = ys.iter().map(|&y| y + 1.2).collect();
+
+let data: Vec<(f64, f64)> = xs.into_iter().zip(ys).collect();
+
+let plot = ScatterPlot::new()
+    .with_data(data)
+    .with_color("steelblue")
+    .with_size(5.0)
+    .with_band(lower, upper);
+```
+
+## Tips
+
+<Tip>
+  **Point overlap**: For dense data, reduce point size (`.with_size(2.0)`) or use semi-transparent colors (`rgba(70,130,180,0.6)`).
+</Tip>
+
+<Tip>
+  **Error bars**: Must call `.with_data()` before adding error bars since they need to match the data point count.
+</Tip>
+
+<Tip>
+  **Trend lines**: Combine `.with_equation()` and `.with_correlation()` to show both the regression formula and goodness-of-fit.
+</Tip>
+
+<Warning>
+  Bubble plots with `.with_sizes()` override the uniform `.with_size()` value. Make sure the sizes vector has the same length as your data.
+</Warning>
+
+## Source Location
+
+Implementation: `src/plot/scatter.rs`  
+Examples: `examples/scatter.rs`

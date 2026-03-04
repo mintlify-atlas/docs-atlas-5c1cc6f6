@@ -1,0 +1,252 @@
+---
+title: UpSetPlot
+description: Scalable set intersection visualization with vertical bars and dot matrix
+---
+
+An UpSet plot is the scalable successor to Venn diagrams for showing set intersections when there are more than three or four sets. It has three visual components: **intersection size bars** (top), **dot matrix** (middle), and optional **set size bars** (left).
+
+## When to Use
+
+- **Differential expression overlap**: Show genes called significant by multiple methods (DESeq2, edgeR, limma)
+- **Variant calling concordance**: Compare SNPs/indels detected by GATK, FreeBayes, Strelka
+- **Drug response**: Identify compounds effective across multiple cell lines
+- **Pathway enrichment**: Show overlap of enriched pathways across conditions
+- **Any set intersection**: When Venn diagrams become cluttered (>3 sets)
+- **Set cardinality**: When exact counts matter more than spatial overlap
+
+## Basic Example
+
+```rust
+use kuva::plot::UpSetPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let up = UpSetPlot::new()
+    .with_sets(vec![
+        ("Set A", vec!["apple", "banana", "cherry", "date"]),
+        ("Set B", vec!["banana", "cherry", "elderberry", "fig"]),
+        ("Set C", vec!["cherry", "fig", "grape"]),
+    ]);
+
+let plots = vec![Plot::UpSet(up)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Set Intersections");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("upset.svg", svg).unwrap();
+```
+
+## Input Modes
+
+### Raw Sets: `with_sets`
+
+Provide `(name, elements)` pairs. Intersection counts computed automatically.
+
+```rust
+let up = UpSetPlot::new().with_sets(vec![
+    ("DESeq2",   vec!["BRCA1", "TP53", "EGFR", "MYC",  "CDK4"]),
+    ("edgeR",    vec!["TP53",  "EGFR", "RB1",  "PTEN", "CDK4"]),
+    ("limma",    vec!["EGFR",  "MYC",  "RB1",  "CDK2"]),
+]);
+```
+
+Elements can be any type implementing `Eq + Hash` (strings, integers, gene IDs, etc.). Intersection counts follow bitmask semantics: an element in sets A and C but not B is counted under A∩C — not A, not C, not A∩B∩C.
+
+### Precomputed: `with_data`
+
+Provide set names, total sizes, and `(mask, count)` pairs directly.
+
+```rust
+// Three variant callers — bit 0 = GATK, bit 1 = FreeBayes, bit 2 = Strelka
+let up = UpSetPlot::new().with_data(
+    ["GATK", "FreeBayes", "Strelka"],
+    [280usize, 263, 249],
+    vec![
+        (0b001, 45),   // GATK only
+        (0b010, 35),   // FreeBayes only
+        (0b100, 28),   // Strelka only
+        (0b011, 62),   // GATK ∩ FreeBayes
+        (0b101, 55),   // GATK ∩ Strelka
+        (0b110, 48),   // FreeBayes ∩ Strelka
+        (0b111, 118),  // all three
+    ],
+);
+```
+
+Bit `i` of `mask` set means `set_names[i]` participates. Use when intersection counts come from external source (database, enrichment tool).
+
+## Key Methods
+
+### Sorting
+
+#### `with_sort(sort: UpSetSort)`
+
+Set intersection ordering (default `ByFrequency`).
+
+- **`UpSetSort::ByFrequency`** (default) — Largest count leftmost
+- **`UpSetSort::ByDegree`** — Most complex (most sets) leftmost, ties broken by count
+- **`UpSetSort::Natural`** — Preserve supplied order
+
+```rust
+use kuva::plot::UpSetSort;
+
+let up = UpSetPlot::new()
+    .with_sets(sets)
+    .with_sort(UpSetSort::ByDegree);
+```
+
+#### `with_max_visible(max: usize)`
+
+Show only top `max` intersections after sorting.
+
+```rust
+let up = UpSetPlot::new()
+    .with_sets(sets)
+    .with_max_visible(10);  // show only 10 largest
+```
+
+### Styling
+
+#### `without_set_sizes()`
+
+Hide horizontal set-size bars on left panel.
+
+```rust
+let up = UpSetPlot::new()
+    .with_sets(sets)
+    .without_set_sizes();
+```
+
+Produces more compact layout focused on intersections.
+
+#### `with_bar_color(color: impl Into<String>)`
+
+Set color for intersection bars and set-size bars (default `"#333333"`).
+
+```rust
+let up = UpSetPlot::new()
+    .with_bar_color("steelblue");
+```
+
+#### `with_dot_color(color: impl Into<String>)`
+
+Set fill color for dots in participating set (default `"#333333"`).
+
+```rust
+let up = UpSetPlot::new()
+    .with_dot_color("#1f77b4");
+```
+
+Non-participating dots remain light gray.
+
+## Examples
+
+### Differential Expression Overlap
+
+```rust
+let up = UpSetPlot::new()
+    .with_sets(vec![
+        ("DESeq2", vec!["BRCA1", "TP53", "EGFR", "MYC",  "CDK4", "AKT1"]),
+        ("edgeR",  vec!["TP53",  "EGFR", "RB1",  "PTEN", "CDK4", "VHL"]),
+        ("limma",  vec!["EGFR",  "MYC",  "RB1",  "CDK2", "AKT1"]),
+    ])
+    .with_sort(UpSetSort::ByFrequency)
+    .with_max_visible(10);
+
+let plots = vec![Plot::UpSet(up)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("DEG Method Overlap");
+```
+
+Shows which genes are called by one, two, or all three methods.
+
+### Variant Calling Concordance (Precomputed)
+
+```rust
+let up = UpSetPlot::new().with_data(
+    ["GATK", "FreeBayes", "Strelka"],
+    [280usize, 263, 249],  // total variants per caller
+    vec![
+        (0b001, 45),   // GATK only
+        (0b010, 35),   // FreeBayes only
+        (0b100, 28),   // Strelka only
+        (0b011, 62),   // GATK ∩ FreeBayes
+        (0b101, 55),   // GATK ∩ Strelka
+        (0b110, 48),   // FreeBayes ∩ Strelka
+        (0b111, 118),  // all three (high-confidence)
+    ],
+)
+.with_bar_color("#2ca02c");
+
+let plots = vec![Plot::UpSet(up)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Variant Caller Concordance");
+```
+
+Precomputed counts from database query; 118 variants in all three callers.
+
+### By Degree Sorting
+
+```rust
+use kuva::plot::UpSetSort;
+
+let up = UpSetPlot::new()
+    .with_sets(vec![
+        ("A", vec![1, 2, 3, 4, 5]),
+        ("B", vec![3, 4, 5, 6, 7]),
+        ("C", vec![5, 6, 7, 8, 9]),
+        ("D", vec![7, 8, 9, 10]),
+    ])
+    .with_sort(UpSetSort::ByDegree)
+    .with_max_visible(8);
+
+let plots = vec![Plot::UpSet(up)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Sorted by Degree");
+```
+
+Most complex intersections (4-way, 3-way) shown first.
+
+### Compact Layout (No Set Sizes)
+
+```rust
+let up = UpSetPlot::new()
+    .with_sets(sets)
+    .without_set_sizes()
+    .with_bar_color("#1f77b4")
+    .with_dot_color("#1f77b4");
+
+let plots = vec![Plot::UpSet(up)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Compact UpSet Plot");
+```
+
+No left panel; focuses solely on intersection sizes.
+
+## Visual Components
+
+### Intersection Size Bars (Top)
+
+Vertical bars show element count for each intersection. Height encodes count.
+
+### Dot Matrix (Middle)
+
+Grid of circles where:
+- **Filled dots** indicate set participates in intersection
+- **Empty dots** (light gray) indicate set does not participate
+- **Vertical line** connects filled dots in same intersection
+
+### Set Size Bars (Left, Optional)
+
+Horizontal bars show total element count per set. Enabled by default; hide with `without_set_sizes()`.
+
+## Pixel-Space Rendering
+
+UpSet plots render entirely in pixel space — no standard x/y axis system. `Layout::auto_from_plots` skips axis computation for UpSet plots. Title set on `Layout` is still rendered.
+
+## See Also
+
+- [Venn diagrams] — For 2–3 sets with spatial overlap
+- [Heatmap](/plot-types/statistical/heatmap) — For pairwise set similarity matrices

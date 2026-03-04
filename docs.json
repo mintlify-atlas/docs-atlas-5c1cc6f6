@@ -1,122 +1,174 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Kuva",
+  "theme": "sequoia",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#2563eb",
+    "light": "#60a5fa",
+    "dark": "#1e40af"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/Psy-Fer/kuva"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Psy-Fer/kuva"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/architecture",
+              "concepts/plots",
+              "concepts/layouts",
+              "concepts/themes-palettes",
+              "concepts/backends"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/library-usage",
+              "guides/cli-usage",
+              "guides/styling-customization",
+              "guides/multi-plot-figures",
+              "guides/annotations"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Plot Types",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
-              "api-reference/introduction"
+              "plot-types/overview"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Basic Plots",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "plot-types/basic/scatter",
+              "plot-types/basic/line",
+              "plot-types/basic/bar",
+              "plot-types/basic/histogram",
+              "plot-types/basic/box",
+              "plot-types/basic/violin",
+              "plot-types/basic/pie",
+              "plot-types/basic/strip"
+            ]
+          },
+          {
+            "group": "Statistical Plots",
+            "pages": [
+              "plot-types/statistical/histogram2d",
+              "plot-types/statistical/heatmap",
+              "plot-types/statistical/contour",
+              "plot-types/statistical/band",
+              "plot-types/statistical/waterfall",
+              "plot-types/statistical/stacked-area",
+              "plot-types/statistical/candlestick"
+            ]
+          },
+          {
+            "group": "Scientific Plots",
+            "pages": [
+              "plot-types/scientific/volcano",
+              "plot-types/scientific/manhattan",
+              "plot-types/scientific/dotplot",
+              "plot-types/scientific/upset",
+              "plot-types/scientific/brick"
+            ]
+          },
+          {
+            "group": "Network & Flow",
+            "pages": [
+              "plot-types/network/chord",
+              "plot-types/network/sankey",
+              "plot-types/network/phylo",
+              "plot-types/network/synteny"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/render-functions",
+              "api/layout",
+              "api/figure"
+            ]
+          },
+          {
+            "group": "Plot APIs",
+            "pages": [
+              "api/plots/scatter",
+              "api/plots/line",
+              "api/plots/bar",
+              "api/plots/histogram",
+              "api/plots/box",
+              "api/plots/violin",
+              "api/plots/pie",
+              "api/plots/strip",
+              "api/plots/histogram2d",
+              "api/plots/heatmap",
+              "api/plots/contour",
+              "api/plots/band",
+              "api/plots/waterfall",
+              "api/plots/stacked-area",
+              "api/plots/candlestick",
+              "api/plots/volcano",
+              "api/plots/manhattan",
+              "api/plots/dotplot",
+              "api/plots/upset",
+              "api/plots/brick",
+              "api/plots/chord",
+              "api/plots/sankey",
+              "api/plots/phylo",
+              "api/plots/synteny",
+              "api/plots/series"
+            ]
+          },
+          {
+            "group": "Backends",
+            "pages": [
+              "api/backends/svg",
+              "api/backends/png",
+              "api/backends/pdf",
+              "api/backends/terminal"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utilities/themes",
+              "api/utilities/palettes",
+              "api/utilities/annotations",
+              "api/utilities/datetime"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

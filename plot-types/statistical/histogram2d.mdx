@@ -1,0 +1,149 @@
+---
+title: Histogram2D
+description: 2D histogram (density map) for visualizing bivariate distributions and correlations
+---
+
+A 2D histogram bins scatter points `(x, y)` into a rectangular grid and colors each cell by its count. This plot is ideal for visualizing density patterns, identifying clusters, and detecting correlations in large datasets where individual scatter points would create overplotting.
+
+## When to Use
+
+- **Density visualization**: Show where data points concentrate in 2D space
+- **Correlation analysis**: Identify linear or non-linear relationships between two variables
+- **Large datasets**: Handle thousands of points more efficiently than scatter plots
+- **Bivariate distributions**: Reveal bimodal or multimodal patterns
+- **Quality control**: Detect anomalous clustering or outliers in paired measurements
+
+## Basic Example
+
+```rust
+use kuva::plot::Histogram2D;
+use kuva::plot::histogram2d::ColorMap;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+// Generate 5,000 bivariate Gaussian scatter points
+let data: Vec<(f64, f64)> = vec![(5.0, 6.0), (14.0, 15.0), (15.0, 14.0)];
+
+let hist = Histogram2D::new()
+    .with_data(data, (0.0, 20.0), (0.0, 20.0), 20, 20)  // x_range, y_range, bins_x, bins_y
+    .with_color_map(ColorMap::Viridis);
+
+let plots = vec![Plot::Histogram2d(hist)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("2D Histogram")
+    .with_x_label("X")
+    .with_y_label("Y");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("hist2d.svg", svg).unwrap();
+```
+
+## Key Methods
+
+### `with_data(data, x_range, y_range, bins_x, bins_y)`
+
+Load scatter points and bin them into a grid.
+
+- **data** — `Vec<(T, T)>` where `T: Into<f64>`; (x, y) pairs
+- **x_range** / **y_range** — axis extents `(min, max)`; points outside are discarded
+- **bins_x** / **bins_y** — number of columns / rows in the grid
+
+Points are binned using the specified ranges — start at `0.0` to align bin indices with layout coordinates.
+
+```rust
+let data: Vec<(f64, f64)> = vec![(5.0, 8.0), (12.0, 3.0), (7.0, 15.0)];
+let hist = Histogram2D::new()
+    .with_data(data, (0.0, 20.0), (0.0, 20.0), 30, 30);
+```
+
+### `with_color_map(map: ColorMap)`
+
+Set the colormap for bin counts. Available options:
+
+- **`ColorMap::Viridis`** (default) — Perceptually uniform blue → green → yellow; colorblind-safe
+- **`ColorMap::Inferno`** — High contrast dark purple → orange → yellow
+- **`ColorMap::Grayscale`** — White (low) → black (high); print-friendly
+- **`ColorMap::Custom(Arc<dyn Fn(f64) -> String>)`** — User-supplied function `f64 → CSS color`
+
+```rust
+let hist = Histogram2D::new()
+    .with_data(data, (0.0, 30.0), (0.0, 30.0), 30, 30)
+    .with_color_map(ColorMap::Inferno);
+```
+
+### `with_correlation()`
+
+Overlay the Pearson r coefficient in the top-right corner, computed from all raw scatter points (including those outside the plot range).
+
+```rust
+let hist = Histogram2D::new()
+    .with_data(data, (0.0, 20.0), (0.0, 20.0), 25, 25)
+    .with_correlation();  // displays "r = 0.85" for correlated data
+```
+
+## Examples
+
+### Correlated Variables
+
+```rust
+let data = correlated(4_000, 10.0, 10.0, 2.0, 2.0, 0.85, 2);  // rho ≈ 0.85
+
+let hist = Histogram2D::new()
+    .with_data(data, (0.0, 20.0), (0.0, 20.0), 25, 25)
+    .with_correlation();
+
+let plots = vec![Plot::Histogram2d(hist)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Correlated Variables (r ≈ 0.85)")
+    .with_x_label("X")
+    .with_y_label("Y");
+```
+
+Shows a clear diagonal density ridge with the Pearson r coefficient displayed.
+
+### Bimodal Distribution
+
+```rust
+let mut data = bivariate(3_000,  9.0,  9.0, 2.0, 2.0, 3);  // cluster 1
+data.extend(bivariate(3_000, 21.0, 21.0, 2.0, 2.0, 4));  // cluster 2
+
+let hist = Histogram2D::new()
+    .with_data(data, (0.0, 30.0), (0.0, 30.0), 30, 30)
+    .with_color_map(ColorMap::Inferno);
+
+let plots = vec![Plot::Histogram2d(hist)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Bimodal — Inferno")
+    .with_x_label("X")
+    .with_y_label("Y");
+```
+
+Inferno colormap makes high-density regions stand out with bright yellow-orange against a dark background.
+
+### Bin Resolution Comparison
+
+```rust
+// Coarse binning — 10×10 with Grayscale
+let hist_coarse = Histogram2D::new()
+    .with_data(data.clone(), (0.0, 30.0), (0.0, 30.0), 10, 10)
+    .with_color_map(ColorMap::Grayscale);
+
+// Fine binning — 50×50 with Viridis
+let hist_fine = Histogram2D::new()
+    .with_data(data.clone(), (0.0, 30.0), (0.0, 30.0), 50, 50)
+    .with_color_map(ColorMap::Viridis);
+```
+
+Coarse binning shows overall shape; fine binning reveals detailed density structure.
+
+## Colorbar
+
+A colorbar labeled **"Count"** is automatically added to the right margin, showing the mapping from bin count to color.
+
+## See Also
+
+- [Heatmap](/plot-types/statistical/heatmap) — For pre-computed grids with categorical axes
+- [ContourPlot](/plot-types/statistical/contour) — For continuous iso-line representation of 2D fields
+- [Scatter](/plot-types/basic/scatter) — For visualizing raw (x, y) points when overplotting is not an issue

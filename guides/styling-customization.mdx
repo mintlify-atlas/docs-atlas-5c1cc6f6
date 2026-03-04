@@ -1,0 +1,488 @@
+---
+title: Styling & Customization
+description: Customizing plot appearance, colors, markers, line styles, themes, and palettes
+---
+
+Kuva provides extensive styling options to customize the appearance of your plots, from colors and markers to complete themes and color palettes.
+
+## Themes
+
+Themes control the overall visual style of your plots, including background, axes, grid, and text colors.
+
+### Built-in Themes
+
+Kuva includes four built-in themes:
+
+<CardGroup cols={2}>
+  <Card title="Light" icon="sun">
+    Default theme with white background and black text
+  </Card>
+  <Card title="Dark" icon="moon">
+    Dark background (#1e1e1e) with light text for night viewing
+  </Card>
+  <Card title="Solarized" icon="palette">
+    Ethan Schoonover's Solarized color scheme
+  </Card>
+  <Card title="Minimal" icon="minus">
+    Clean, publication-ready style with no grid
+  </Card>
+</CardGroup>
+
+### Using Themes (Library)
+
+```rust
+use kuva::prelude::*;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark());
+```
+
+<CodeGroup>
+```rust Light
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::light());
+```
+
+```rust Dark
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark());
+```
+
+```rust Solarized
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::solarized());
+```
+
+```rust Minimal
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::minimal());
+```
+</CodeGroup>
+
+### Using Themes (CLI)
+
+```bash
+kuva scatter data.csv --x 0 --y 1 --theme dark
+kuva scatter data.csv --x 0 --y 1 --theme solarized
+kuva scatter data.csv --x 0 --y 1 --theme minimal
+```
+
+### Theme Structure
+
+The `Theme` struct controls all chrome colors:
+
+```rust
+pub struct Theme {
+    pub background: String,        // Plot background
+    pub axis_color: String,        // Axis lines
+    pub grid_color: String,        // Grid lines
+    pub tick_color: String,        // Tick marks
+    pub text_color: String,        // Labels and titles
+    pub legend_bg: String,         // Legend background
+    pub legend_border: String,     // Legend border
+    pub pie_leader: String,        // Pie chart leader lines
+    pub box_median: String,        // Box plot median line
+    pub violin_border: String,     // Violin plot borders
+    pub colorbar_border: String,   // Colorbar border
+    pub font_family: Option<String>,
+    pub show_grid: bool,
+}
+```
+
+See [src/render/theme.rs:1](https://github.com/Psy-Fer/kuva) for the complete implementation.
+
+### Background Color Override
+
+```rust
+// Library
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark())
+    .with_background("#2d2d2d");
+```
+
+```bash
+# CLI
+kuva scatter data.csv --x 0 --y 1 --theme dark --background "#2d2d2d"
+```
+
+## Color Palettes
+
+Palettes provide consistent color schemes for multi-series plots.
+
+### Available Palettes
+
+#### Colorblind-Safe Palettes
+
+These palettes are designed to be distinguishable for people with color vision deficiency:
+
+- **`wong`** - Bang Wong, Nature Methods 2011 (8 colors)
+- **`okabe_ito`** - Alias for Wong palette (widely known name)
+- **`tol_bright`** - Paul Tol qualitative bright (7 colors)
+- **`tol_muted`** - Paul Tol qualitative muted (10 colors)
+- **`tol_light`** - Paul Tol qualitative light (9 colors)
+
+#### General-Purpose Palettes
+
+- **`category10`** - Tableau 10 / D3 Category10 (10 colors, default)
+- **`pastel`** - Softer pastel version (10 colors)
+- **`bold`** - High-saturation vivid colors (10 colors)
+- **`ibm`** - IBM Design Language (5 colors)
+
+### Using Palettes (Library)
+
+```rust
+use kuva::prelude::*;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::wong());
+```
+
+### Using Palettes (CLI)
+
+```bash
+# Apply to color-coded groups
+kuva scatter data.csv --x 0 --y 1 --color-by species --palette wong
+kuva scatter data.csv --x 0 --y 1 --color-by species --palette tol-bright
+```
+
+### Color Vision Deficiency (CVD) Palettes
+
+Dedicated palettes for specific types of color blindness:
+
+```rust
+// Library
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::deuteranopia());  // Red-green, most common
+```
+
+```bash
+# CLI
+kuva scatter data.csv --x 0 --y 1 --color-by group --cvd-palette deuteranopia
+kuva scatter data.csv --x 0 --y 1 --color-by group --cvd-palette protanopia
+kuva scatter data.csv --x 0 --y 1 --color-by group --cvd-palette tritanopia
+```
+
+### Custom Palettes
+
+```rust
+use kuva::prelude::*;
+
+let custom = Palette::custom(
+    "my_palette",
+    vec![
+        "#e63946".into(),
+        "#f1faee".into(),
+        "#a8dadc".into(),
+        "#457b9d".into(),
+        "#1d3557".into(),
+    ]
+);
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(custom);
+```
+
+### Cycling Through Palette Colors
+
+```rust
+use kuva::prelude::*;
+
+let palette = Palette::category10();
+let plots: Vec<Plot> = data_groups
+    .into_iter()
+    .enumerate()
+    .map(|(i, (name, data))| {
+        ScatterPlot::new()
+            .with_data(data)
+            .with_color(&palette[i])  // Automatically wraps
+            .with_legend(name)
+            .into()
+    })
+    .collect();
+```
+
+See [src/render/palette.rs:1](https://github.com/Psy-Fer/kuva) for palette definitions.
+
+## Plot-Specific Styling
+
+### Scatter Plots
+
+#### Colors and Sizes
+
+```rust
+use kuva::prelude::*;
+
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (3.0, 4.0)])
+    .with_color("steelblue")  // CSS color string
+    .with_size(5.0);          // Point radius in pixels
+```
+
+#### Marker Shapes
+
+Six marker shapes are available:
+
+```rust
+use kuva::prelude::*;
+
+let scatter = ScatterPlot::new()
+    .with_data(data)
+    .with_marker(MarkerShape::Circle);    // Default
+    // .with_marker(MarkerShape::Square);
+    // .with_marker(MarkerShape::Triangle);
+    // .with_marker(MarkerShape::Diamond);
+    // .with_marker(MarkerShape::Cross);
+    // .with_marker(MarkerShape::Plus);
+```
+
+#### Bubble Plots (Variable Sizes)
+
+```rust
+use kuva::prelude::*;
+
+let data = vec![(1.0, 3.0), (2.5, 6.5), (4.0, 4.0)];
+let sizes = vec![5.0, 14.0, 9.0];  // Different size for each point
+
+let bubble = ScatterPlot::new()
+    .with_data(data)
+    .with_sizes(sizes)
+    .with_color("steelblue");
+```
+
+See [examples/scatter.rs:189](https://github.com/Psy-Fer/kuva) for the bubble plot example.
+
+### Line Plots
+
+#### Line Styles
+
+```rust
+use kuva::prelude::*;
+
+let line = LinePlot::new()
+    .with_data(data)
+    .with_color("crimson")
+    .with_stroke_width(2.0)
+    .with_line_style(LineStyle::Solid);     // Default
+    // .with_line_style(LineStyle::Dashed);
+    // .with_line_style(LineStyle::Dotted);
+    // .with_line_style(LineStyle::DashDot);
+```
+
+Convenience methods:
+
+```rust
+let line = LinePlot::new()
+    .with_data(data)
+    .with_dashed();  // Same as .with_line_style(LineStyle::Dashed)
+```
+
+#### Custom Dash Patterns
+
+```rust
+use kuva::prelude::*;
+
+let line = LinePlot::new()
+    .with_data(data)
+    .with_line_style(LineStyle::Custom("10 5 2 5".into()));  // SVG dasharray
+```
+
+#### Fill Under Line
+
+```rust
+use kuva::prelude::*;
+
+let line = LinePlot::new()
+    .with_data(data)
+    .with_color("steelblue")
+    .with_fill()              // Fill to zero
+    .with_fill_opacity(0.3);  // Transparent fill
+```
+
+See [examples/line.rs:57](https://github.com/Psy-Fer/kuva) for line style examples.
+
+### Bar Plots
+
+```rust
+use kuva::prelude::*;
+
+let bar = BarPlot::new()
+    .with_data(categories, values)
+    .with_color("steelblue")
+    .with_horizontal()  // Horizontal bars instead of vertical
+    .with_bar_width(0.8);  // Width as fraction of available space
+```
+
+### Box Plots
+
+```rust
+use kuva::prelude::*;
+
+let boxplot = BoxPlot::new()
+    .with_data(values)
+    .with_color("steelblue")
+    .with_median_color("white")  // Override median line color
+    .with_width(0.6);  // Box width as fraction of space
+```
+
+### Violin Plots
+
+```rust
+use kuva::prelude::*;
+
+let violin = ViolinPlot::new()
+    .with_data(values)
+    .with_color("steelblue")
+    .with_border_color("black")  // Outline color
+    .with_bandwidth(0.5);  // KDE bandwidth parameter
+```
+
+## Layout Customization
+
+### Canvas Size
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_width(1200.0)
+    .with_height(800.0);
+```
+
+```bash
+kuva scatter data.csv --x 0 --y 1 --width 1200 --height 800
+```
+
+### Titles and Labels
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Experiment Results")
+    .with_x_label("Temperature (°C)")
+    .with_y_label("Pressure (kPa)");
+```
+
+### Grid Control
+
+```rust
+// Disable grid
+let layout = Layout::auto_from_plots(&plots)
+    .with_show_grid(false);
+
+// Grid is controlled by the theme by default
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::minimal());  // Minimal theme has no grid
+```
+
+```bash
+kuva scatter data.csv --x 0 --y 1 --no-grid
+```
+
+### Tick Control
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_ticks(10);  // Target number of tick marks (hint, not guarantee)
+```
+
+### Tick Formats
+
+```rust
+use kuva::prelude::*;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_tick_format(TickFormat::Auto);       // Default
+    // .with_tick_format(TickFormat::Fixed(2));  // 2 decimal places
+    // .with_tick_format(TickFormat::Percent);   // Multiply by 100, append %
+    // .with_tick_format(TickFormat::Sci);       // Scientific notation
+```
+
+See [examples/layout.rs:59](https://github.com/Psy-Fer/kuva) for tick format examples.
+
+### Log Scale
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_log_x()     // Log₁₀ X axis
+    .with_log_y();    // Log₁₀ Y axis
+
+// Or both at once
+let layout = Layout::auto_from_plots(&plots)
+    .with_log_scale();  // Both axes
+```
+
+```bash
+kuva scatter data.csv --x 0 --y 1 --log-x --log-y
+```
+
+## Legends
+
+### Adding Legend Labels
+
+```rust
+use kuva::prelude::*;
+
+let plot1 = ScatterPlot::new()
+    .with_data(data1)
+    .with_color("steelblue")
+    .with_legend("Control");
+
+let plot2 = ScatterPlot::new()
+    .with_data(data2)
+    .with_color("crimson")
+    .with_legend("Treatment");
+
+let plots: Vec<Plot> = vec![plot1.into(), plot2.into()];
+```
+
+### Legend Position
+
+```rust
+use kuva::prelude::*;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_legend_position(LegendPosition::TopRight);     // Default
+    // .with_legend_position(LegendPosition::TopLeft);
+    // .with_legend_position(LegendPosition::BottomRight);
+    // .with_legend_position(LegendPosition::BottomLeft);
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Choose colorblind-safe palettes for publications">
+    Use `wong`, `okabe_ito`, or the `tol_*` palettes for maximum accessibility.
+
+    ```rust
+    let layout = Layout::auto_from_plots(&plots)
+        .with_palette(Palette::wong());
+    ```
+  </Accordion>
+
+  <Accordion title="Match themes to your presentation context">
+    - Use `minimal` theme for publications and papers
+    - Use `dark` theme for presentations in dark rooms
+    - Use `light` theme for print materials and reports
+  </Accordion>
+
+  <Accordion title="Use distinct markers when combining multiple series">
+    ```rust
+    let series1 = ScatterPlot::new()
+        .with_data(data1)
+        .with_marker(MarkerShape::Circle)
+        .with_color("steelblue");
+
+    let series2 = ScatterPlot::new()
+        .with_data(data2)
+        .with_marker(MarkerShape::Square)
+        .with_color("crimson");
+    ```
+  </Accordion>
+
+  <Accordion title="Adjust point sizes based on data density">
+    - Use larger sizes (5-8 pixels) for sparse data
+    - Use smaller sizes (2-4 pixels) for dense data or large datasets
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- [Multi-Plot Figures](/guides/multi-plot-figures) - Creating complex multi-panel layouts
+- [Annotations](/guides/annotations) - Adding text, reference lines, and regions

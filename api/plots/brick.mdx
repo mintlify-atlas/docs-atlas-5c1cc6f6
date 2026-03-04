@@ -1,0 +1,294 @@
+---
+title: BrickPlot
+description: Row-per-sequence visualization with colored rectangles for DNA, RNA, or custom alphabets
+---
+
+A brick plot displays sequences as horizontal rows of colored rectangles, where each character maps to a colored brick. Used in bioinformatics to display **DNA/RNA sequences**, **tandem repeat structures**, and any other character-encoded per-row data.
+
+## Constructor
+
+### new
+
+Create a brick plot with default settings.
+
+```rust
+use kuva::plot::BrickPlot;
+
+let plot = BrickPlot::new();
+```
+
+**Returns:** `BrickPlot`
+
+**Defaults:**
+- No data, no template
+- Global x-offset: `0.0`
+- Character labels: hidden
+
+## Data Input Methods
+
+### with_sequences
+
+Load sequences — one string per row, ordered top to bottom.
+
+```rust
+pub fn with_sequences<T, I>(self, sequences: I) -> Self
+where
+    I: IntoIterator<Item = T>,
+    T: Into<String>,
+```
+
+Each character in a string is rendered as one brick. All characters must have an entry in the template.
+
+<ParamField path="sequences" type="impl IntoIterator<Item = String>">
+  Sequence strings (one per row)
+</ParamField>
+
+**Example:**
+```rust
+let plot = BrickPlot::new()
+    .with_sequences(vec!["ACGTACGT", "ACGTACGT"]);
+```
+
+---
+
+### with_names
+
+Load row labels — one name per sequence, rendered on the y-axis.
+
+```rust
+pub fn with_names<T, I>(self, names: I) -> Self
+where
+    I: IntoIterator<Item = T>,
+    T: Into<String>,
+```
+
+<ParamField path="names" type="impl IntoIterator<Item = String>">
+  Row labels (must match sequences in length)
+</ParamField>
+
+**Example:**
+```rust
+let plot = BrickPlot::new()
+    .with_sequences(vec!["ACGT"])
+    .with_names(vec!["read_1"]);
+```
+
+---
+
+### with_strigars
+
+Load strigar data and switch to **strigar mode** for tandem repeat visualization.
+
+```rust
+pub fn with_strigars<T, U, I>(self, strigars: I) -> Self
+where
+    I: IntoIterator<Item = (T, U)>,
+    T: Into<String>,
+    U: Into<String>,
+```
+
+Accepts `(motif_string, strigar_string)` pairs in [BLADERUNNER](https://github.com/Psy-Fer/bladerunner) format.
+
+<ParamField path="strigars" type="impl IntoIterator<Item = (String, String)>">
+  Iterator of `(motif_string, strigar_string)` pairs
+</ParamField>
+
+**Format:**
+- **motif string** — comma-separated `kmer:letter` assignments (e.g. `"CAT:A,C:B,T:C"`)
+- **strigar string** — run-length encoded local letters (e.g. `"10A1B4A1C1A"`)
+
+This mode auto-normalises k-mers by canonical rotation, assigns global letters by frequency, generates colors from a 10-color palette, and computes variable brick widths proportional to motif length.
+
+**Example:**
+```rust
+let strigars = vec![
+    ("CAT:A,T:B".to_string(), "14A1B1A".to_string()),
+    ("CAT:A,C:B".to_string(), "12A1B3A".to_string()),
+];
+let plot = BrickPlot::new()
+    .with_names(vec!["read_1", "read_2"])
+    .with_strigars(strigars);
+```
+
+## Template Configuration
+
+### with_template
+
+Set the character-to-color template.
+
+```rust
+pub fn with_template(self, template: HashMap<char, String>) -> Self
+```
+
+<ParamField path="template" type="HashMap<char, String>">
+  Map from character to CSS color string
+</ParamField>
+
+Keys are single characters matching those in the sequences. Values are CSS color strings. Use `BrickTemplate` for pre-built DNA/RNA templates.
+
+**Example:**
+```rust
+use std::collections::HashMap;
+use kuva::plot::BrickPlot;
+
+let mut tmpl = HashMap::new();
+tmpl.insert('H', "steelblue".to_string());   // helix
+tmpl.insert('E', "firebrick".to_string());   // strand
+tmpl.insert('C', "#aaaaaa".to_string());     // coil
+
+let plot = BrickPlot::new()
+    .with_sequences(vec!["HHHCCCEEEE"])
+    .with_names(vec!["prot_1"])
+    .with_template(tmpl);
+```
+
+## Alignment Configuration
+
+### with_x_offset
+
+Apply a single offset to every row.
+
+```rust
+pub fn with_x_offset(self, x_offset: f64) -> Self
+```
+
+<ParamField path="x_offset" type="f64">
+  Global x-offset in characters (default: `0.0`)
+</ParamField>
+
+Shifts all sequences left by `x_offset` characters. Use this to align the region of interest at x = 0.
+
+**Example:**
+```rust
+// Skip an 18-character common prefix
+let plot = BrickPlot::new()
+    .with_sequences(data)
+    .with_x_offset(18.0);
+```
+
+---
+
+### with_x_offsets
+
+Apply independent offsets to individual rows.
+
+```rust
+pub fn with_x_offsets<T, I>(self, offsets: I) -> Self
+where
+    I: IntoIterator<Item = T>,
+    T: IntoRowOffset,
+```
+
+Accepts an iterable of `f64` or `Option<f64>` values (one per row). Plain `f64` values are treated as `Some(v)`; `None` entries fall back to the global `x_offset`.
+
+<ParamField path="offsets" type="impl IntoIterator<Item = f64 | Option<f64>>">
+  Per-row offsets (parallel to sequences)
+</ParamField>
+
+**Example:**
+```rust
+// Three reads with different prefix lengths
+let plot = BrickPlot::new()
+    .with_x_offset(12.0)
+    .with_x_offsets(vec![Some(18.0_f64), Some(10.0), None]);  // fourth falls back to 12.0
+```
+
+## Display Configuration
+
+### with_values
+
+Overlay the character label inside each brick.
+
+```rust
+pub fn with_values(self) -> Self
+```
+
+Useful for short sequences or large bricks where the letter is readable.
+
+## BrickTemplate
+
+Pre-built character-to-color mappings for common biological alphabets.
+
+### new
+
+Create an empty template.
+
+```rust
+use kuva::plot::brick::BrickTemplate;
+
+let tmpl = BrickTemplate::new();
+```
+
+---
+
+### dna
+
+Populate with standard DNA colors.
+
+```rust
+pub fn dna(self) -> Self
+```
+
+**Colors:**
+- A → green (`rgb(0,150,0)`)
+- C → blue (`rgb(0,0,255)`)
+- G → orange (`rgb(209,113,5)`)
+- T → red (`rgb(255,0,0)`)
+
+**Example:**
+```rust
+use kuva::plot::brick::BrickTemplate;
+use kuva::plot::BrickPlot;
+
+let tmpl = BrickTemplate::new().dna();
+let plot = BrickPlot::new()
+    .with_sequences(vec!["ACGTACGT"])
+    .with_names(vec!["seq_1"])
+    .with_template(tmpl.template);
+```
+
+---
+
+### rna
+
+Populate with standard RNA colors.
+
+```rust
+pub fn rna(self) -> Self
+```
+
+**Colors:**
+- A → green
+- C → blue
+- G → orange
+- U → red
+
+## Full Example
+
+```rust
+use std::collections::HashMap;
+use kuva::plot::BrickPlot;
+use kuva::plot::brick::BrickTemplate;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let tmpl = BrickTemplate::new().dna();
+
+let plot = BrickPlot::new()
+    .with_sequences(vec![
+        "CGGCGATCAGGCCGCACTCATCATCATCATCAT",
+        "CGGCGATCAGGCCGCACTCATCATCATCATCATCAT",
+    ])
+    .with_names(vec!["read_1", "read_2"])
+    .with_template(tmpl.template)
+    .with_x_offset(18.0);
+
+let plots = vec![Plot::Brick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("DNA Repeat Region");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("brick.svg", svg).unwrap();
+```

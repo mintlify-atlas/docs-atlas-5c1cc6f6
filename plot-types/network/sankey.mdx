@@ -1,0 +1,259 @@
+---
+title: SankeyPlot
+description: Flow diagrams with nodes arranged in columns, connected by tapered ribbons showing directed flows
+---
+
+`SankeyPlot` displays nodes arranged in columns, connected by tapered ribbons that visualize the magnitude and direction of flows between stages. Node heights are proportional to their total throughput, and ribbon widths taper to match the values they carry.
+
+## When to Use
+
+Sankey diagrams are ideal for:
+
+- **Multi-stage pipelines** — data processing workflows, variant filtering, quality control
+- **Budget allocation** — resource distribution across departments or projects
+- **Energy flow** — power generation, consumption, and loss visualization
+- **State transitions** — user journey flows, conversion funnels, process states
+- **Material flow** — supply chain, manufacturing processes, ecological cycles
+
+## Basic Example
+
+```rust
+use kuva::plot::SankeyPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let sankey = SankeyPlot::new()
+    .with_link("Input", "Process A", 50.0)
+    .with_link("Input", "Process B", 30.0)
+    .with_link("Process A", "Output X", 40.0)
+    .with_link("Process A", "Output Y", 10.0)
+    .with_link("Process B", "Output X", 10.0)
+    .with_link("Process B", "Output Y", 20.0);
+
+let plots = vec![Plot::Sankey(sankey)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Energy Flow");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("sankey.svg", svg).unwrap();
+```
+
+Nodes are auto-created when referenced in links, and columns are automatically assigned based on the flow topology.
+
+## Node Colors and Legend
+
+Set explicit node colors and enable a legend:
+
+```rust
+let sankey = SankeyPlot::new()
+    .with_node_color("Input", "#888888")
+    .with_node_color("Process A", "#377eb8")
+    .with_node_color("Process B", "#4daf4a")
+    .with_node_color("Output", "#984ea3")
+    .with_link("Input", "Process A", 40.0)
+    .with_link("Input", "Process B", 30.0)
+    .with_link("Process A", "Output", 35.0)
+    .with_link("Process B", "Output", 25.0)
+    .with_node_width(24.0)
+    .with_legend("Stage");
+```
+
+## Ribbon Color Modes
+
+### Source Color (Default)
+
+Ribbons inherit the source node's color:
+
+```rust
+let sankey = SankeyPlot::new()
+    .with_link("A", "B", 10.0);
+// Ribbon from A to B uses color of node A
+```
+
+### Gradient Ribbons
+
+Each ribbon fades from source to target color using SVG linearGradient:
+
+```rust
+let sankey = SankeyPlot::new()
+    .with_node_color("Budget", "#e41a1c")
+    .with_node_color("R&D", "#377eb8")
+    .with_node_color("Marketing", "#4daf4a")
+    .with_node_color("Product A", "#984ea3")
+    .with_node_color("Product B", "#a65628")
+    .with_link("Budget", "R&D", 40.0)
+    .with_link("Budget", "Marketing", 25.0)
+    .with_link("R&D", "Product A", 25.0)
+    .with_link("Marketing", "Product B", 10.0)
+    .with_gradient_links()
+    .with_link_opacity(0.6);
+```
+
+### Per-Link Colors
+
+Use explicit colors for individual links:
+
+```rust
+let sankey = SankeyPlot::new()
+    .with_link_colored("A", "B", 10.0, "#ff5733")
+    .with_link_colored("A", "C", 15.0, "#33c1ff")
+    .with_per_link_colors();  // Enable per-link color mode
+```
+
+## Bioinformatics Example: Variant Filtering Pipeline
+
+```rust
+let sankey = SankeyPlot::new()
+    .with_node_color("Raw Variants",  "#888888")
+    .with_node_color("QC Pass",       "#4daf4a")
+    .with_node_color("QC Fail",       "#e41a1c")
+    .with_node_color("High Conf",     "#377eb8")
+    .with_node_color("Low Conf",      "#ff7f00")
+    .with_node_color("SNP",           "#984ea3")
+    .with_node_color("Indel",         "#a65628")
+    .with_node_color("Filtered Out",  "#cccccc")
+    .with_link("Raw Variants", "QC Pass",      8000.0)
+    .with_link("Raw Variants", "QC Fail",      2000.0)
+    .with_link("QC Pass",      "High Conf",    6000.0)
+    .with_link("QC Pass",      "Low Conf",     2000.0)
+    .with_link("High Conf",    "SNP",          4500.0)
+    .with_link("High Conf",    "Indel",        1200.0)
+    .with_link("High Conf",    "Filtered Out",  300.0)
+    .with_link("Low Conf",     "SNP",           800.0)
+    .with_link("Low Conf",     "Filtered Out", 1200.0)
+    .with_link_opacity(0.45)
+    .with_legend("Stage");
+```
+
+## Key Methods
+
+### `SankeyPlot::new()`
+
+Create a Sankey diagram with default settings:
+- Link color mode: Source
+- Link opacity: 0.5
+- Node width: 20.0 pixels
+- Node gap: 8.0 pixels
+
+### `.with_link<S: Into<String>>(source: S, target: S, value: f64)`
+
+Add a link between two nodes. Nodes are auto-created if they don't exist. The value determines the ribbon width.
+
+```rust
+let sankey = SankeyPlot::new()
+    .with_link("A", "B", 25.0)
+    .with_link("A", "C", 15.0);
+```
+
+### `.with_links<S, I>(links: I)`
+
+Bulk-add links from an iterator of `(source_label, target_label, value)` tuples:
+
+```rust
+let links = vec![
+    ("A", "B", 10.0),
+    ("B", "C", 8.0),
+    ("A", "C", 5.0),
+];
+let sankey = SankeyPlot::new().with_links(links);
+```
+
+### `.with_node_color<S: Into<String>, C: Into<String>>(label: S, color: C)`
+
+Set the color for a node, creating it if absent. Accepts any CSS color string.
+
+### `.with_node_column<S: Into<String>>(label: S, col: usize)`
+
+Pin a node to a specific column (0-indexed). By default, columns are auto-assigned based on the flow topology.
+
+### `.with_link_colored<S: Into<String>, C: Into<String>>(source: S, target: S, value: f64, color: C)`
+
+Add a link with an explicit per-link color. Must call `.with_per_link_colors()` to enable per-link color mode.
+
+### `.with_gradient_links()`
+
+Use gradient ribbons (linearGradient from source to target color).
+
+### `.with_per_link_colors()`
+
+Use per-link colors (falls back to source color if link.color is None).
+
+### `.with_link_opacity(opacity: f64)`
+
+Set ribbon fill opacity (default `0.5`). Range: `0.0` (transparent) to `1.0` (opaque).
+
+### `.with_node_width(width: f64)`
+
+Set node rectangle width in pixels (default `20.0`).
+
+### `.with_node_gap(gap: f64)`
+
+Set minimum gap between nodes in a column in pixels (default `8.0`).
+
+### `.with_legend<S: Into<String>>(label: S)`
+
+Add a legend with one entry per node.
+
+## Data Structures
+
+### SankeyPlot
+
+```rust
+pub struct SankeyPlot {
+    pub nodes: Vec<SankeyNode>,
+    pub links: Vec<SankeyLink>,
+    pub link_color: SankeyLinkColor,
+    pub link_opacity: f64,
+    pub node_width: f64,
+    pub node_gap: f64,
+    pub legend_label: Option<String>,
+}
+```
+
+### SankeyNode
+
+```rust
+pub struct SankeyNode {
+    pub label: String,
+    pub color: Option<String>,
+    pub column: Option<usize>,  // Pin to specific column if set
+}
+```
+
+### SankeyLink
+
+```rust
+pub struct SankeyLink {
+    pub source: usize,  // Index into nodes vec
+    pub target: usize,  // Index into nodes vec
+    pub value: f64,
+    pub color: Option<String>,  // Used with PerLink color mode
+}
+```
+
+### SankeyLinkColor
+
+```rust
+pub enum SankeyLinkColor {
+    Source,    // Ribbon inherits source node color (default)
+    Gradient,  // SVG linearGradient from source to target
+    PerLink,   // Use SankeyLink.color field per link
+}
+```
+
+## Tips
+
+- **Node ordering**: Nodes within a column are automatically ordered to minimize ribbon crossings
+- **Column assignment**: Columns are auto-assigned based on longest path from sources; override with `.with_node_column()` if needed
+- **Value consistency**: Ensure conservation of flow — total input to a node should equal total output
+- **Color strategy**: Use gradient mode for continuous processes, per-link colors for categorizing flows
+- **Opacity**: Reduce opacity when ribbons overlap heavily to improve readability
+- **Scale**: Works well for 5-50 nodes across 2-6 columns
+- **Legend**: Enable when node colors encode categories (stages, types, etc.)
+
+## Related Plots
+
+- [ChordPlot](/plot-types/network/chord) — For circular pairwise flow matrices without explicit stages
+- [AlluvialPlot](/plot-types/categorical/alluvial) — For tracking categorical membership changes across stages

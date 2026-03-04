@@ -1,0 +1,152 @@
+---
+title: "Introduction to Kuva"
+description: "A scientific plotting library in Rust with 25 plot types, SVG output, optional PNG/PDF backends, and a CLI for rendering plots from the shell"
+---
+
+## What is Kuva?
+
+Kuva is a scientific plotting library for Rust that renders plots to SVG with optional PNG and PDF output. It targets bioinformatics and scientific use cases, shipping with 25 specialized plot types — from standard scatter and bar charts to Manhattan plots, UpSet plots, phylogenetic trees, and synteny diagrams.
+
+The library includes both a programmatic API for Rust projects and a standalone CLI binary that lets you render plots directly from the command line without writing any Rust code.
+
+## Key Features
+
+### 25 Specialized Plot Types
+
+Kuva provides a comprehensive collection of plot types designed for scientific visualization:
+
+**Core Statistical Plots**
+- Scatter (with error bars, trend lines, confidence bands, bubble charts)
+- Line plots with multiple series
+- Bar charts (grouped, stacked, horizontal)
+- Histograms (1D and 2D)
+- Box plots and violin plots
+- Strip plots
+
+**Scientific & Domain-Specific**
+- **Volcano plots** — differential expression analysis
+- **Manhattan plots** — genome-wide association studies (GWAS)
+- **Dot plots** — gene expression visualization
+- **UpSet plots** — set intersection analysis
+- **Phylogenetic trees** — evolutionary relationships
+- **Synteny plots** — genomic sequence alignment
+- **Sankey diagrams** — flow visualization
+- **Chord diagrams** — circular relationship plots
+
+**Financial & Advanced**
+- Candlestick charts
+- Waterfall plots
+- Stacked area charts
+- Heatmaps with multiple color maps
+- Contour plots
+- Brick plots
+- Band plots
+- Pie charts
+
+### Multiple Output Formats
+
+- **SVG** — Always available, vector graphics for web and print
+- **PNG** — Optional feature for raster output (requires `png` feature)
+- **PDF** — Optional feature for vector PDF (requires `pdf` feature)
+- **Terminal** — Render plots directly in your terminal using Unicode/ASCII art
+
+### Builder Pattern API
+
+Every plot type follows a consistent, ergonomic builder pattern:
+
+```rust
+use kuva::prelude::*;
+
+let plot = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (3.0, 5.0), (5.0, 4.0)])
+    .with_color("steelblue")
+    .with_size(5.0)
+    .with_legend("Samples");
+```
+
+### Command-Line Interface
+
+The CLI accepts TSV/CSV input (auto-detected) and can:
+- Read from files or stdin
+- Select columns by name or index
+- Output to SVG, PNG, or PDF
+- Render directly in the terminal
+- Support all 25 plot types
+
+### Customization Options
+
+- **Themes** — Pre-built themes for consistent styling
+- **Palettes** — Color schemes from the colorous library
+- **Annotations** — Text labels, reference lines, shaded regions
+- **Date/Time Axes** — Native support for temporal data
+- **Multi-plot Figures** — Grid layouts with shared axes
+- **Twin Y-Axes** — Overlay plots with different scales
+- **Legend Control** — Flexible positioning and styling
+
+## When to Use Kuva
+
+<CardGroup cols={2}>
+  <Card title="Bioinformatics" icon="dna">
+    Built-in support for volcano plots, Manhattan plots, phylogenetic trees, synteny diagrams, and dot plots commonly used in genomics and molecular biology.
+  </Card>
+  
+  <Card title="Rust Projects" icon="code">
+    Native Rust library with no Python dependencies. Integrate directly into your Rust scientific computing or data analysis pipeline.
+  </Card>
+  
+  <Card title="Command-Line Workflows" icon="terminal">
+    Generate publication-ready plots from shell scripts or data pipelines. Pipe data directly from stdin, no scripting required.
+  </Card>
+  
+  <Card title="Reproducible Research" icon="file-code">
+    Version-controlled plot generation with type-safe APIs. Plots are defined programmatically, not through GUI interactions.
+  </Card>
+</CardGroup>
+
+## Design Philosophy
+
+Kuva follows a four-stage rendering pipeline:
+
+```text
+plot struct  →  Plot enum  →  Layout  →  backend output (SVG/PNG/PDF)
+```
+
+1. **Build** — Construct plot structs using builder methods
+2. **Collect** — Convert to `Plot` enum variants using `.into()`
+3. **Layout** — Auto-compute or manually configure axis ranges, labels, titles
+4. **Render** — Choose backend (SVG, PNG, PDF, or Terminal)
+
+This separation of concerns allows for:
+- Composing multiple plot types on one canvas
+- Reusing layouts across different datasets
+- Swapping backends without changing plot definitions
+- Testing plot logic independently of rendering
+
+## Performance
+
+Kuva is designed for performance:
+- No runtime dependencies on Python or JavaScript
+- Optimized SVG generation
+- Efficient KDE (Kernel Density Estimation) for violin plots
+- Benchmarks available in the repository
+
+## Browser and Platform Support
+
+SVG output works in:
+- All modern browsers (Chrome, Firefox, Safari, Edge)
+- Vector graphics editors (Inkscape, Adobe Illustrator)
+- LaTeX documents via `\includegraphics`
+- Markdown and HTML documentation
+
+The CLI binary runs on:
+- Linux (x86_64, ARM64)
+- macOS (Intel, Apple Silicon)
+- Windows (x86_64)
+
+## Getting Started
+
+Ready to create your first plot? Continue to the [Installation](/installation) guide to get Kuva installed, then follow the [Quick Start](/quickstart) to render your first visualization.
+
+<Card title="Installation" icon="download" href="/installation">
+  Install the Kuva library or CLI binary
+</Card>

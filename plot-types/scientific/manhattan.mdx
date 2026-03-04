@@ -1,0 +1,342 @@
+---
+title: ManhattanPlot
+description: Genome-wide association study (GWAS) visualization showing p-values across chromosomes
+---
+
+A Manhattan plot displays GWAS p-values across the genome. Each point represents a SNP; the x-axis spans chromosomes and the y-axis shows **−log₁₀(p-value)**. Dashed threshold lines are drawn automatically at genome-wide and suggestive significance levels. Chromosomes are colored with an alternating two-color scheme.
+
+## When to Use
+
+- **GWAS studies**: Standard plot for genome-wide association results
+- **Rare variant analysis**: Display exome-wide or gene-based p-values
+- **eQTL mapping**: Show expression QTL associations
+- **TWAS**: Transcriptome-wide association studies
+- **Meta-analysis**: Combined GWAS results across cohorts
+- **Quality control**: Identify systematic bias or inflation
+
+## Basic Example
+
+```rust
+use kuva::plot::{ManhattanPlot, GenomeBuild};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+// (chrom, bp_position, pvalue) from PLINK/GCTA
+let data: Vec<(String, f64, f64)> = vec![
+    ("1".into(), 100_000_000.0, 3e-10),
+    ("6".into(), 50_000_000.0, 8e-9),
+    // ... thousands more SNPs
+];
+
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, GenomeBuild::Hg38)
+    .with_label_top(10)
+    .with_legend("GWAS thresholds");
+
+let plots = vec![Plot::Manhattan(mp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("GWAS — Base-pair Coordinates (GRCh38)")
+    .with_x_label("Chromosome")
+    .with_y_label("−log₁₀(p-value)");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("manhattan.svg", svg).unwrap();
+```
+
+## Input Modes
+
+Three methods map `(chrom, …, pvalue)` onto the cumulative x-axis:
+
+### Mode 1: Sequential Index — `with_data`
+
+SNPs placed at consecutive integer x positions within each chromosome.
+
+```rust
+let data: Vec<(String, f64)> = vec![
+    ("1".into(), 0.42), ("1".into(), 3e-8),
+    ("2".into(), 0.17), ("2".into(), 5e-6),
+];
+let mp = ManhattanPlot::new().with_data(data);
+```
+
+Use when base-pair positions are unavailable.
+
+### Mode 2: Base-pair Coordinates — `with_data_bp`
+
+SNP x = chromosome cumulative offset + bp position. **Standard mode for GWAS.**
+
+```rust
+let data = vec![
+    ("1", 100_000_000_f64, 3e-10_f64),
+    ("6",  50_000_000_f64, 8e-9),
+];
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, GenomeBuild::Hg38);
+```
+
+All chromosomes in the build appear as labeled bands even if they contain no data.
+
+#### GenomeBuild Options
+
+- **`GenomeBuild::Hg19`** — GRCh37 / hg19 (24 chromosomes + MT)
+- **`GenomeBuild::Hg38`** — GRCh38 / hg38 (24 chromosomes + MT)
+- **`GenomeBuild::T2T`** — T2T-CHM13 v2.0 / hs1 (telomere-to-telomere)
+- **`GenomeBuild::Custom(vec)`** — User-supplied `Vec<(chrom_name, size_bp)>`
+
+```rust
+let build = GenomeBuild::Custom(vec![
+    ("chr1".to_string(), 120_000_000),
+    ("chr2".to_string(),  95_000_000),
+    ("chrX".to_string(),  55_000_000),
+]);
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, build);
+```
+
+### Mode 3: Pre-computed x — `with_data_x`
+
+Supply explicit cumulative x coordinates.
+
+```rust
+let data = vec![
+    ("A",  10.0_f64, 0.42_f64),
+    ("A",  20.0,     3e-8),
+    ("B", 120.0,     0.17),
+    ("B", 130.0,     5e-6),
+];
+let mp = ManhattanPlot::new().with_data_x(data);
+```
+
+Use for custom or non-human genomes.
+
+## Key Methods
+
+### Thresholds
+
+#### `with_genome_wide(threshold: f64)`
+
+Set genome-wide significance in −log₁₀ scale (default `7.301` = p = 5×10⁻⁸).
+
+```rust
+let mp = ManhattanPlot::new()
+    .with_genome_wide(8.0);  // p = 1e-8
+```
+
+Dashed red line drawn at this y position. Only points above this threshold are candidates for `with_label_top` labels.
+
+#### `with_suggestive(threshold: f64)`
+
+Set suggestive significance in −log₁₀ scale (default `5.0` = p = 1×10⁻⁵).
+
+```rust
+let mp = ManhattanPlot::new()
+    .with_suggestive(4.0);  // p = 1e-4
+```
+
+Dashed gray line drawn at this y position.
+
+### Colors
+
+#### `with_color_a(color: impl Into<String>)` / `with_color_b(color: impl Into<String>)`
+
+Set colors for alternating chromosomes (default `"steelblue"` / `"#5aadcb"`).
+
+```rust
+let mp = ManhattanPlot::new()
+    .with_color_a("#1f77b4")
+    .with_color_b("#aec7e8");
+```
+
+#### `with_palette(palette: Palette)`
+
+Override two-color scheme with a full palette. Colors cycle across chromosomes.
+
+```rust
+use kuva::Palette;
+
+let mp = ManhattanPlot::new()
+    .with_palette(Palette::tol_bright());
+```
+
+### Gene Labels
+
+#### `with_label_top(n: usize)`
+
+Label the `n` most significant points **above the genome-wide threshold** (lowest p-values).
+
+```rust
+let mp = ManhattanPlot::new()
+    .with_label_top(10);  // label top 10 hits
+```
+
+#### `with_label_style(style: LabelStyle)`
+
+Set label placement style (default `LabelStyle::Nudge`).
+
+- **`LabelStyle::Nudge`** (default) — Labels sorted by x and nudged vertically
+- **`LabelStyle::Exact`** — Labels at exact point position
+- **`LabelStyle::Arrow { offset_x, offset_y }`** — Labels offset with leader line
+
+```rust
+use kuva::plot::LabelStyle;
+
+let mp = ManhattanPlot::new()
+    .with_label_top(10)
+    .with_label_style(LabelStyle::Arrow { offset_x: 10.0, offset_y: 14.0 });
+```
+
+#### `with_point_labels(iter)`
+
+Attach specific gene/SNP labels to points by `(chrom, x, label)`.
+
+```rust
+let mp = ManhattanPlot::new()
+    .with_data_x(data)
+    .with_point_labels(vec![
+        ("1",  40.0, "BRCA2"),
+        ("2", 140.0, "TP53"),
+    ]);
+```
+
+The `x` value must match the coordinate assigned at data-load time.
+
+### Other Options
+
+#### `with_point_size(size: f64)`
+
+Set radius in pixels (default `2.5`).
+
+```rust
+let mp = ManhattanPlot::new()
+    .with_point_size(3.0);
+```
+
+#### `with_pvalue_floor(floor: f64)`
+
+Set explicit p-value floor for −log10 transform. Points with `pvalue == 0.0` clamped to this value.
+
+```rust
+let mp = ManhattanPlot::new()
+    .with_pvalue_floor(1e-20);  // y-axis ceiling = 20
+```
+
+#### `with_legend(label: impl Into<String>)`
+
+Enable legend showing genome-wide and suggestive threshold lines.
+
+```rust
+let mp = ManhattanPlot::new()
+    .with_legend("GWAS thresholds");
+```
+
+## Examples
+
+### Standard GWAS — GRCh38
+
+```rust
+let data: Vec<(String, f64, f64)> = vec![
+    ("1".into(), 100_000_000.0, 3e-10),
+    ("2".into(),  50_000_000.0, 1e-8),
+    ("6".into(),  32_000_000.0, 5e-9),
+    // ... thousands more SNPs
+];
+
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, GenomeBuild::Hg38)
+    .with_genome_wide(7.301)   // 5e-8
+    .with_suggestive(5.0)      // 1e-5
+    .with_label_top(10)
+    .with_legend("GWAS thresholds");
+
+let plots = vec![Plot::Manhattan(mp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Height GWAS — 100k samples")
+    .with_x_label("Chromosome")
+    .with_y_label("−log₁₀(p-value)");
+```
+
+Standard genome-wide thresholds with top 10 hits labeled.
+
+### Custom Genome Build
+
+```rust
+let build = GenomeBuild::Custom(vec![
+    ("1".to_string(), 150_000_000),
+    ("2".to_string(), 120_000_000),
+    ("3".to_string(),  90_000_000),
+]);
+
+let data: Vec<(String, f64, f64)> = vec![
+    ("1".into(), 80_000_000.0, 2e-8),
+    ("2".into(), 50_000_000.0, 5e-7),
+];
+
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, build)
+    .with_label_top(5);
+
+let plots = vec![Plot::Manhattan(mp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Custom Genome GWAS")
+    .with_x_label("Chromosome")
+    .with_y_label("−log₁₀(p-value)");
+```
+
+Non-human genome or custom chromosome set.
+
+### Custom Color Palette
+
+```rust
+use kuva::Palette;
+
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, GenomeBuild::Hg38)
+    .with_palette(Palette::tol_bright())
+    .with_label_top(10);
+
+let plots = vec![Plot::Manhattan(mp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Custom Palette GWAS")
+    .with_x_label("Chromosome")
+    .with_y_label("−log₁₀(p-value)");
+```
+
+Colorblind-friendly Paul Tol palette.
+
+### Exome-wide Sequential Index
+
+```rust
+let data: Vec<(String, f64)> = vec![
+    ("1".into(), 0.42), ("1".into(), 3e-8), ("1".into(), 5e-7),
+    ("2".into(), 0.17), ("2".into(), 5e-6), ("2".into(), 8e-9),
+    // ... gene-based p-values
+];
+
+let mp = ManhattanPlot::new()
+    .with_data(data)
+    .with_genome_wide(6.0)     // Bonferroni: 0.05 / 20000 genes
+    .with_label_top(5);
+
+let plots = vec![Plot::Manhattan(mp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Exome-wide Gene-based Test")
+    .with_x_label("Chromosome")
+    .with_y_label("−log₁₀(p-value)");
+```
+
+No base-pair positions; sequential index mode.
+
+## Zero p-values
+
+p-values of exactly `0.0` are clamped at the smallest non-zero p-value (or `pvalue_floor`) to prevent infinite y positions.
+
+## Chromosome Names
+
+Chromosome names are accepted **with or without** the `"chr"` prefix. Internally normalized to standard order: 1–22, X, Y, MT, then lexicographic.
+
+## See Also
+
+- [VolcanoPlot](/plot-types/scientific/volcano) — For differential expression results
+- [Scatter](/plot-types/basic/scatter) — For general scatter plots

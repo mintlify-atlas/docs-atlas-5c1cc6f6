@@ -1,0 +1,122 @@
+---
+title: TerminalBackend
+description: Terminal backend for rendering scenes with ANSI/Unicode characters
+---
+
+## Overview
+
+`TerminalBackend` renders a `Scene` to an ANSI/Unicode string for terminal display. It uses:
+- **Braille characters** (U+2800–U+28FF) for circles and diagonal lines
+- **Box-drawing characters** for axes and grid lines
+- **Full-block characters** (█) for filled rectangles
+- **ANSI 24-bit color** for all elements
+
+This backend is always available and requires no feature flags.
+
+## Usage
+
+```rust
+use kuva::backend::terminal::TerminalBackend;
+use kuva::render::render::Scene;
+
+let scene = /* your Scene */;
+let backend = TerminalBackend::new(80, 24);
+let output = backend.render_scene(&scene);
+print!("{}", output);
+```
+
+## Constructor
+
+### `new`
+
+Creates a new terminal backend with specified dimensions.
+
+<ParamField path="cols" type="usize" required>
+  Number of terminal character columns (typically 80-200)
+</ParamField>
+
+<ParamField path="rows" type="usize" required>
+  Number of terminal character rows (typically 24-60)
+</ParamField>
+
+**Returns:** `TerminalBackend`
+
+**Example:**
+
+```rust
+let backend = TerminalBackend::new(120, 40);
+```
+
+## Methods
+
+### `render_scene`
+
+Renders a `Scene` to an ANSI/Unicode string.
+
+<ParamField path="scene" type="&Scene" required>
+  The scene to render
+</ParamField>
+
+**Returns:** `String` - ANSI string with color codes and Unicode graphics
+
+**Example:**
+
+```rust
+let output = backend.render_scene(&scene);
+print!("{}", output);
+```
+
+## Rendering Layers
+
+The terminal backend renders in three layers (front-to-back):
+
+1. **char_grid** - Filled rectangles (█) and text characters
+2. **line_char_grid** - Box-drawing characters for axes/ticks
+3. **braille** - Dot-matrix characters for circles and diagonal lines
+
+## Coordinate Mapping
+
+Scene coordinates are mapped to terminal coordinates:
+
+- **Braille resolution**: 2×4 dots per character cell
+- **Character resolution**: 1×1 character per cell
+- Box-drawing uses bitmask encoding (TOP=1, RIGHT=2, BOTTOM=4, LEFT=8)
+
+## Features
+
+- **Horizontal/vertical lines**: Rendered with box-drawing characters (─, │, ┼, etc.)
+- **Diagonal lines**: Rendered with Bresenham algorithm on braille grid
+- **Circles**: Filled using braille dots
+- **Filled paths**: Scanline-filled with braille dots (for Sankey, pie slices)
+- **Text**: Rendered directly with character grid
+- **Rotated labels**: Collision-avoided stacking for readability
+
+## Auto-detection
+
+Terminal dimensions can be auto-detected:
+
+```rust
+use kuva::render::layout::Layout;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_term_rows(40);  // Override rows if needed
+```
+
+## CLI Usage
+
+The CLI supports terminal output with `--terminal`:
+
+```bash
+kuva scatter data.tsv --x x --y y --terminal
+```
+
+## Limitations
+
+- UpSetPlot is not supported in terminal mode
+- No font size control (uses monospace terminal font)
+- Limited color resolution compared to image formats
+- Text rotation is approximated
+
+## Source
+
+`src/backend/terminal.rs`

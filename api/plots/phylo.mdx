@@ -1,0 +1,322 @@
+---
+title: PhyloTree
+description: Phylogenetic tree with rectangular, slanted, or circular branches
+---
+
+A phylogenetic tree displays hierarchical relationships between taxa using branches and nodes. Supports rectangular, slanted, and circular branch styles; phylogram (branch-length-based) and cladogram (uniform-depth) modes; and clade coloring.
+
+## Constructors
+
+### from_newick
+
+Parse a Newick-format string into a `PhyloTree`.
+
+```rust
+pub fn from_newick(s: &str) -> Self
+```
+
+<ParamField path="s" type="&str">
+  Newick string with optional branch lengths and support values
+</ParamField>
+
+Supports branch lengths (`A:1.0`), support values on internal nodes, and arbitrarily nested subtrees.
+
+**Example:**
+```rust
+use kuva::plot::PhyloTree;
+
+let tree = PhyloTree::from_newick("((A:1.0,B:1.5)95:0.5,C:2.0);");
+```
+
+---
+
+### from_edges
+
+Build a tree from `(parent_label, child_label, branch_length)` edges.
+
+```rust
+pub fn from_edges<S: AsRef<str>>(edges: &[(S, S, f64)]) -> Self
+```
+
+<ParamField path="edges" type="&[(String, String, f64)]">
+  Edges as `(parent, child, branch_length)` triplets
+</ParamField>
+
+Root = the node that never appears as a child.
+
+**Example:**
+```rust
+let edges = vec![
+    ("root", "A", 1.0),
+    ("root", "B", 1.5),
+    ("root", "C", 2.0),
+];
+let tree = PhyloTree::from_edges(&edges);
+```
+
+---
+
+### from_distance_matrix
+
+Build a tree by UPGMA clustering of a symmetric distance matrix.
+
+```rust
+pub fn from_distance_matrix(labels: &[&str], dist: &[Vec<f64>]) -> Self
+```
+
+<ParamField path="labels" type="&[&str]">
+  Leaf labels (one per row/column)
+</ParamField>
+
+<ParamField path="dist" type="&[Vec<f64>]">
+  N×N symmetric distance matrix
+</ParamField>
+
+**Example:**
+```rust
+let labels = vec!["A", "B", "C"];
+let dist = vec![
+    vec![0.0, 1.0, 2.0],
+    vec![1.0, 0.0, 1.5],
+    vec![2.0, 1.5, 0.0],
+];
+let tree = PhyloTree::from_distance_matrix(&labels, &dist);
+```
+
+---
+
+### from_linkage
+
+Build a tree from a scipy / R linkage matrix.
+
+```rust
+pub fn from_linkage(labels: &[&str], linkage: &[[f64; 4]]) -> Self
+```
+
+<ParamField path="labels" type="&[&str]">
+  Leaf labels (one per original element)
+</ParamField>
+
+<ParamField path="linkage" type="&[[f64; 4]]">
+  Linkage matrix where each row is `[left_idx, right_idx, distance, n_leaves]`
+</ParamField>
+
+Indices `0..n-1` are the original leaves; `n..` are internal nodes.
+
+**Example:**
+```rust
+let labels = vec!["A", "B", "C"];
+let linkage = vec![
+    [0.0, 1.0, 0.5, 2.0],  // merge A and B at distance 0.5
+    [2.0, 3.0, 1.0, 3.0],  // merge (A,B) and C at distance 1.0
+];
+let tree = PhyloTree::from_linkage(&labels, &linkage);
+```
+
+## Orientation
+
+### with_orientation
+
+Set which axis the root appears on.
+
+```rust
+pub fn with_orientation(self, o: TreeOrientation) -> Self
+```
+
+<ParamField path="o" type="TreeOrientation">
+  Tree orientation (default: `TreeOrientation::Left`)
+</ParamField>
+
+**TreeOrientation variants:**
+- `TreeOrientation::Left` — root at left, leaves at right (default)
+- `TreeOrientation::Right` — root at right, leaves at left
+- `TreeOrientation::Top` — root at top, leaves at bottom
+- `TreeOrientation::Bottom` — root at bottom, leaves at top
+
+**Example:**
+```rust
+use kuva::plot::{PhyloTree, TreeOrientation};
+
+let tree = PhyloTree::from_newick(newick_str)
+    .with_orientation(TreeOrientation::Top);
+```
+
+## Branch Style
+
+### with_branch_style
+
+Set how branches are drawn between parent and child.
+
+```rust
+pub fn with_branch_style(self, s: TreeBranchStyle) -> Self
+```
+
+<ParamField path="s" type="TreeBranchStyle">
+  Branch style (default: `TreeBranchStyle::Rectangular`)
+</ParamField>
+
+**TreeBranchStyle variants:**
+- `TreeBranchStyle::Rectangular` — right-angle elbows at parent depth (default)
+- `TreeBranchStyle::Slanted` — single diagonal line from parent to child
+- `TreeBranchStyle::Circular` — polar/radial projection
+
+**Example:**
+```rust
+use kuva::plot::{PhyloTree, TreeBranchStyle};
+
+let tree = PhyloTree::from_newick(newick_str)
+    .with_branch_style(TreeBranchStyle::Circular);
+```
+
+## Phylogram Mode
+
+### with_phylogram
+
+Enable phylogram mode: use branch lengths for the depth axis.
+
+```rust
+pub fn with_phylogram(self) -> Self
+```
+
+By default, trees are rendered as cladograms (uniform depth per level). Call this to use accumulated branch lengths.
+
+**Example:**
+```rust
+let tree = PhyloTree::from_newick(newick_str)
+    .with_phylogram();
+```
+
+## Color Configuration
+
+### with_branch_color
+
+Set the color for all branches.
+
+```rust
+pub fn with_branch_color<S: Into<String>>(self, c: S) -> Self
+```
+
+<ParamField path="c" type="String">
+  CSS color string (default: `"black"`)
+</ParamField>
+
+---
+
+### with_leaf_color
+
+Set the text color for leaf labels.
+
+```rust
+pub fn with_leaf_color<S: Into<String>>(self, c: S) -> Self
+```
+
+<ParamField path="c" type="String">
+  CSS color string (default: `"black"`)
+</ParamField>
+
+---
+
+### with_clade_color
+
+Color the entire subtree rooted at `node_id` with `color`.
+
+```rust
+pub fn with_clade_color<S: Into<String>>(self, node_id: usize, color: S) -> Self
+```
+
+<ParamField path="node_id" type="usize">
+  Root node ID of the clade to color
+</ParamField>
+
+<ParamField path="color" type="String">
+  CSS color string
+</ParamField>
+
+**Example:**
+```rust
+let tree = PhyloTree::from_newick(newick_str)
+    .with_clade_color(5, "steelblue")
+    .with_clade_color(8, "firebrick");
+```
+
+## Support Values
+
+### with_support_threshold
+
+Show support values >= `threshold`.
+
+```rust
+pub fn with_support_threshold(self, t: f64) -> Self
+```
+
+<ParamField path="t" type="f64">
+  Minimum support value to display (e.g. `0.7` for 70% bootstrap)
+</ParamField>
+
+**Example:**
+```rust
+let tree = PhyloTree::from_newick(newick_str)
+    .with_support_threshold(0.7);  // show bootstrap >= 70%
+```
+
+## Legend
+
+### with_legend
+
+Enable a legend.
+
+```rust
+pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+```
+
+<ParamField path="label" type="String">
+  Legend label
+</ParamField>
+
+## Helper Methods
+
+### leaf_labels_top_to_bottom
+
+Return leaf labels in the top-to-bottom render order (post-order DFS, left children first).
+
+```rust
+pub fn leaf_labels_top_to_bottom(&self) -> Vec<String>
+```
+
+**Returns:** `Vec<String>`
+
+Use this to set `y_categories` on a side-by-side `Heatmap` for row alignment.
+
+**Example:**
+```rust
+let tree = PhyloTree::from_newick(newick_str);
+let row_order = tree.leaf_labels_top_to_bottom();
+
+// Use row_order for heatmap y-axis to align with tree leaves
+```
+
+## Full Example
+
+```rust
+use kuva::plot::{PhyloTree, TreeOrientation, TreeBranchStyle};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let newick = "((human:0.3,chimp:0.3)100:0.5,(mouse:0.6,rat:0.6)98:0.4)95:0.2;";
+
+let tree = PhyloTree::from_newick(newick)
+    .with_phylogram()
+    .with_orientation(TreeOrientation::Left)
+    .with_branch_style(TreeBranchStyle::Rectangular)
+    .with_support_threshold(0.9)
+    .with_clade_color(1, "steelblue");  // color the (human, chimp) clade
+
+let plots = vec![Plot::PhyloTree(tree)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Mammalian Phylogeny");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("phylo.svg", svg).unwrap();
+```

@@ -1,0 +1,223 @@
+---
+title: ViolinPlot
+description: API reference for ViolinPlot - violin plots with kernel density estimation
+---
+
+## ViolinPlot
+
+Builder for creating violin plots. Estimates the probability density of each group using kernel density estimation (KDE) and renders the result as a symmetric shape — wider where data is dense, narrower where it is sparse. Unlike box plots, violins reveal multi-modal and skewed distributions.
+
+Bandwidth defaults to Silverman's rule-of-thumb. Individual data points can be overlaid as a jittered strip or beeswarm.
+
+### Constructor
+
+<ParamField path="ViolinPlot::new()" type="Self">
+  Create a violin plot with default settings.
+  
+  **Defaults:**
+  - Color: `"black"`
+  - Width: `30.0` pixels (half-width)
+  - Silverman bandwidth
+  - 200 KDE evaluation points
+  - Overlay color: `"rgba(0,0,0,0.45)"`
+  - Overlay point size: `3.0` pixels
+  - No overlay
+</ParamField>
+
+### Data Methods
+
+<ParamField path="with_group" type="Self">
+  ```rust
+  pub fn with_group<T, U, I>(self, label: T, values: I) -> Self
+  where
+      T: Into<String>,
+      I: IntoIterator<Item = U>,
+      U: Into<f64>
+  ```
+  
+  Add a group (one violin) with a label and raw values. Groups are rendered left-to-right in the order they are added. More data points produce a smoother, more accurate density estimate.
+  
+  **Example:**
+  ```rust
+  let plot = ViolinPlot::new()
+      .with_group("A", vec![1.0, 2.5, 3.0, 3.5, 4.0, 5.0])
+      .with_group("B", vec![2.0, 3.0, 3.8, 4.2, 4.8, 6.0]);
+  ```
+</ParamField>
+
+### Styling Methods
+
+<ParamField path="with_color" type="Self">
+  ```rust
+  pub fn with_color<S: Into<String>>(self, color: S) -> Self
+  ```
+  
+  Set the violin fill color. Accepts CSS color strings (e.g. `"steelblue"`).
+</ParamField>
+
+<ParamField path="with_width" type="Self">
+  ```rust
+  pub fn with_width(self, width: f64) -> Self
+  ```
+  
+  Set the maximum half-width of each violin in pixels (default `30.0`). The widest point of the violin is scaled to this value. Increase it to make violins more prominent, decrease it for a narrower look. Note this is in pixel units, unlike bar-width which is a fractional slot.
+</ParamField>
+
+### KDE Methods
+
+<ParamField path="with_bandwidth" type="Self">
+  ```rust
+  pub fn with_bandwidth(self, h: f64) -> Self
+  ```
+  
+  Set the KDE bandwidth manually. Bandwidth controls the smoothness of the density estimate. Smaller values reveal finer structure (but may be noisy); larger values produce a smoother shape (but may hide modes). When not set, Silverman's rule-of-thumb is applied automatically — a good starting point for unimodal, roughly normal data.
+  
+  **Example:**
+  ```rust
+  let plot = ViolinPlot::new()
+      .with_group("A", vec![1.0, 2.0, 3.0, 4.0, 5.0])
+      .with_bandwidth(0.5);  // tighter than the default
+  ```
+</ParamField>
+
+<ParamField path="with_kde_samples" type="Self">
+  ```rust
+  pub fn with_kde_samples(self, n: usize) -> Self
+  ```
+  
+  Set the number of points at which the KDE is evaluated (default `200`). Higher values produce a smoother curve at the cost of slightly more computation. The default is adequate for most use cases.
+</ParamField>
+
+### Overlay Methods
+
+<ParamField path="with_strip" type="Self">
+  ```rust
+  pub fn with_strip(self, jitter: f64) -> Self
+  ```
+  
+  Overlay individual data points as a jittered strip. `jitter` controls the horizontal spread (in data-axis units). A value of `0.15`–`0.2` is typical. Use a semi-transparent `with_overlay_color` so the violin shape remains visible underneath.
+</ParamField>
+
+<ParamField path="with_swarm_overlay" type="Self">
+  ```rust
+  pub fn with_swarm_overlay(self) -> Self
+  ```
+  
+  Overlay individual data points as a beeswarm. Points are spread horizontally to avoid overlap, giving a clearer picture of density than a jittered strip. Works best with smaller datasets (roughly N < 200 per group).
+</ParamField>
+
+<ParamField path="with_overlay_color" type="Self">
+  ```rust
+  pub fn with_overlay_color<S: Into<String>>(self, color: S) -> Self
+  ```
+  
+  Set the fill color for overlay points (default `"rgba(0,0,0,0.45)"`). A semi-transparent color is strongly recommended so the KDE shape behind the points remains legible.
+</ParamField>
+
+<ParamField path="with_overlay_size" type="Self">
+  ```rust
+  pub fn with_overlay_size(self, size: f64) -> Self
+  ```
+  
+  Set the radius of overlay points in pixels (default `3.0`).
+</ParamField>
+
+### Legend Methods
+
+<ParamField path="with_legend" type="Self">
+  ```rust
+  pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+  ```
+  
+  Attach a legend label to this violin plot.
+</ParamField>
+
+## Types
+
+### ViolinGroup
+
+A single group (one violin) with a category label and raw values.
+
+**Fields:**
+- `label: String` - Category label
+- `values: Vec<f64>` - Raw data values
+
+## Complete Example
+
+### Simple Violin Plot
+
+```rust
+use kuva::plot::ViolinPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = ViolinPlot::new()
+    .with_group("Control", vec![4.1, 5.0, 5.3, 5.8, 6.2, 7.0, 5.5, 4.8])
+    .with_group("Treated", vec![5.5, 6.1, 6.4, 7.2, 7.8, 8.5, 6.9, 7.0])
+    .with_color("steelblue")
+    .with_width(30.0);
+
+let plots = vec![Plot::Violin(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Control vs. Treated")
+    .with_x_label("Group")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("violin.svg", svg).unwrap();
+```
+
+### Violin Plot with Strip Overlay
+
+```rust
+use kuva::plot::ViolinPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = ViolinPlot::new()
+    .with_group("Control", vec![4.1, 5.0, 5.3, 5.8, 6.2, 7.0, 5.5, 4.8])
+    .with_group("Treated", vec![5.5, 6.1, 6.4, 7.2, 7.8, 8.5, 6.9, 7.0])
+    .with_color("steelblue")
+    .with_strip(0.15)
+    .with_overlay_color("rgba(0,0,0,0.3)")
+    .with_overlay_size(2.5);
+
+let plots = vec![Plot::Violin(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Control vs. Treated (with points)")
+    .with_x_label("Group")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("violin_strip.svg", svg).unwrap();
+```
+
+### Violin Plot with Custom Bandwidth
+
+```rust
+use kuva::plot::ViolinPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = ViolinPlot::new()
+    .with_group("Control", vec![4.1, 5.0, 5.3, 5.8, 6.2, 7.0, 5.5, 4.8])
+    .with_group("Treated", vec![5.5, 6.1, 6.4, 7.2, 7.8, 8.5, 6.9, 7.0])
+    .with_color("steelblue")
+    .with_bandwidth(0.3)  // tighter bandwidth for more detail
+    .with_kde_samples(300);  // more samples for smoother curve
+
+let plots = vec![Plot::Violin(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Control vs. Treated (custom KDE)")
+    .with_x_label("Group")
+    .with_y_label("Value");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("violin_custom.svg", svg).unwrap();
+```

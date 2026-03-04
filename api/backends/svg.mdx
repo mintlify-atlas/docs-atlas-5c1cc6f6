@@ -1,0 +1,55 @@
+---
+title: SvgBackend
+description: SVG backend for rendering scenes to SVG strings
+---
+
+## Overview
+
+`SvgBackend` renders a `Scene` to an SVG string. This backend is always available and has no feature flag requirements. It produces vector output that can be scaled without quality loss.
+
+## Usage
+
+```rust
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::Scene;
+
+let scene = /* your Scene */;
+let svg_string = SvgBackend.render_scene(&scene);
+std::fs::write("plot.svg", svg_string).unwrap();
+```
+
+## Methods
+
+### `render_scene`
+
+Renders a `Scene` to an SVG string.
+
+<ParamField path="scene" type="&Scene" required>
+  The scene to render
+</ParamField>
+
+**Returns:** `String` - Complete SVG document with XML declaration
+
+**Example:**
+
+```rust
+let svg = SvgBackend.render_scene(&scene);
+assert!(svg.contains("<svg xmlns"));
+```
+
+## Output Format
+
+The SVG output includes:
+- XML namespace declaration
+- Width and height attributes from scene dimensions
+- Optional background rectangle if `scene.background_color` is set
+- SVG defs for gradients (used by Sankey plots)
+- All scene primitives converted to SVG elements
+
+## Performance
+
+SVG generation pre-allocates string capacity (~80 bytes per primitive) to minimize reallocations during rendering.
+
+## Source
+
+`src/backend/svg.rs`

@@ -1,0 +1,189 @@
+---
+title: Histogram2D
+description: API reference for 2D histogram plots with automatic binning and colormaps
+---
+
+A 2D histogram bins scatter points `(x, y)` into a rectangular grid and colors each cell by its count. The colorbar (labeled **"Count"**) is added to the right margin automatically.
+
+## Constructor
+
+### `new()`
+
+Create a 2D histogram with default settings.
+
+**Returns:** `Histogram2D`
+
+**Defaults:**
+- 10×10 bins
+- Viridis colormap
+- No correlation annotation
+
+```rust
+use kuva::plot::Histogram2D;
+
+let hist = Histogram2D::new();
+```
+
+## Data Loading
+
+### `with_data()`
+
+Load scatter points and bin them into a grid.
+
+<ParamField path="data" type="Vec<(T, T)>">
+  `(x, y)` pairs; any type implementing `Into<f64>`
+</ParamField>
+
+<ParamField path="x_range" type="(f64, f64)">
+  Axis extents `(min, max)`. Points outside these bounds are silently discarded. Start at `0.0` to keep bin-index and layout coordinates aligned.
+</ParamField>
+
+<ParamField path="y_range" type="(f64, f64)">
+  Axis extents `(min, max)` for the y-axis
+</ParamField>
+
+<ParamField path="bins_x" type="usize">
+  Number of columns in the grid
+</ParamField>
+
+<ParamField path="bins_y" type="usize">
+  Number of rows in the grid
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let data: Vec<(f64, f64)> = vec![(5.0, 8.0), (12.0, 3.0), (7.0, 15.0)];
+let hist = Histogram2D::new()
+    .with_data(data, (0.0, 20.0), (0.0, 20.0), 20, 20);
+```
+
+## Styling
+
+### `with_color_map()`
+
+Set the colormap for bin counts.
+
+<ParamField path="map" type="ColorMap">
+  Colormap applied to normalized bin counts. Options: `ColorMap::Viridis` (default), `ColorMap::Inferno`, `ColorMap::Grayscale`, or `ColorMap::Custom(Arc<Fn>)`
+</ParamField>
+
+**Returns:** `Self`
+
+**Default:** `ColorMap::Viridis`
+
+```rust
+use kuva::plot::histogram2d::ColorMap;
+
+let hist = Histogram2D::new()
+    .with_data(vec![(5.0_f64, 5.0_f64)], (0.0, 10.0), (0.0, 10.0), 10, 10)
+    .with_color_map(ColorMap::Inferno);
+```
+
+## Annotations
+
+### `with_correlation()`
+
+Overlay the Pearson correlation coefficient in the top-right corner.
+
+**Returns:** `Self`
+
+The coefficient is computed from all points passed to `with_data`, including those clipped outside the plot range. Displayed as `r = 0.85`.
+
+```rust
+let hist = Histogram2D::new()
+    .with_data(vec![(5.0_f64, 6.0_f64)], (0.0, 10.0), (0.0, 10.0), 10, 10)
+    .with_correlation();
+```
+
+## ColorMap
+
+### Variants
+
+#### `Viridis`
+
+Perceptually uniform, blue → green → yellow. Colorblind-safe. **(default)**
+
+#### `Inferno`
+
+Dark purple → orange → bright yellow. High contrast.
+
+#### `Grayscale`
+
+White (low) → black (high). Print-friendly.
+
+#### `Custom(Arc<dyn Fn(f64) -> String>)`
+
+User-supplied function `f64 → String`. The function receives a normalized value in `[0.0, 1.0]`.
+
+```rust
+use std::sync::Arc;
+use kuva::plot::histogram2d::ColorMap;
+
+let cmap = ColorMap::Custom(Arc::new(|t: f64| {
+    let g = (t * 255.0) as u8;
+    format!("rgb(0,{g},128)")
+}));
+```
+
+## Complete Example
+
+```rust
+use kuva::plot::Histogram2D;
+use kuva::plot::histogram2d::ColorMap;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+// (x, y) scatter points
+let data: Vec<(f64, f64)> = vec![(5.0, 6.0), (14.0, 15.0), (15.0, 14.0)];
+
+let hist = Histogram2D::new()
+    .with_data(data, (0.0, 20.0), (0.0, 20.0), 20, 20)
+    .with_color_map(ColorMap::Viridis)
+    .with_correlation();
+
+let plots = vec![Plot::Histogram2d(hist)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("2D Histogram")
+    .with_x_label("X")
+    .with_y_label("Y");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("hist2d.svg", svg).unwrap();
+```
+
+## Public Fields
+
+<ParamField path="data" type="Vec<(f64, f64)>">
+  Raw scatter points used for correlation computation
+</ParamField>
+
+<ParamField path="bins" type="Vec<Vec<usize>>">
+  Pre-computed bin counts indexed as `bins[row][col]`
+</ParamField>
+
+<ParamField path="x_range" type="(f64, f64)">
+  Physical x-axis range `(min, max)` used for binning
+</ParamField>
+
+<ParamField path="y_range" type="(f64, f64)">
+  Physical y-axis range `(min, max)` used for binning
+</ParamField>
+
+<ParamField path="bins_x" type="usize">
+  Number of bins along the x-axis. Default: `10`
+</ParamField>
+
+<ParamField path="bins_y" type="usize">
+  Number of bins along the y-axis. Default: `10`
+</ParamField>
+
+<ParamField path="color_map" type="ColorMap">
+  Colormap applied to normalized bin counts. Default: `ColorMap::Viridis`
+</ParamField>
+
+<ParamField path="show_correlation" type="bool">
+  When `true`, the Pearson r coefficient is printed in the top-right corner
+</ParamField>

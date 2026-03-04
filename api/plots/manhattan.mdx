@@ -1,0 +1,397 @@
+---
+title: ManhattanPlot
+description: GWAS Manhattan plot with genome-wide and suggestive significance thresholds
+---
+
+A Manhattan plot displays GWAS p-values across the genome. Each point represents a SNP; the x-axis spans chromosomes and the y-axis shows **−log₁₀(p-value)**. Dashed threshold lines are drawn automatically at genome-wide and suggestive significance levels. Chromosomes are colored with an alternating two-color scheme (or a full `Palette`).
+
+## Constructor
+
+### new
+
+Create a Manhattan plot with default settings.
+
+```rust
+use kuva::plot::ManhattanPlot;
+
+let mp = ManhattanPlot::new();
+```
+
+**Returns:** `ManhattanPlot`
+
+**Defaults:**
+- Genome-wide threshold: `7.301` (p = 5×10⁻⁸)
+- Suggestive threshold: `5.0` (p = 1×10⁻⁵)
+- Color A: `"steelblue"`
+- Color B: `"#5aadcb"`
+- Point size: `2.5`
+- No labels, no legend
+
+## Data Input Methods
+
+Three methods load data, each mapping `(chrom, …, pvalue)` onto the cumulative x-axis:
+
+### with_data
+
+**Input mode 1** — sequential integer x-coordinates.
+
+```rust
+pub fn with_data<I, S, G>(self, iter: I) -> Self
+where
+    I: IntoIterator<Item = (S, G)>,
+    S: Into<String>,
+    G: Into<f64>,
+```
+
+Accepts `(chrom, pvalue)` pairs. Chromosomes are sorted into standard genomic order (1–22, X, Y, MT); points within each chromosome receive consecutive integer x positions.
+
+<ParamField path="iter" type="impl IntoIterator<Item = (String, f64)>">
+  Iterator of `(chromosome_name, p_value)` pairs
+</ParamField>
+
+**Use when:** Base-pair positions are unavailable or unimportant.
+
+**Example:**
+```rust
+let data = vec![
+    ("1".into(), 0.42), ("1".into(), 3e-8),
+    ("2".into(), 0.17), ("2".into(), 5e-6),
+];
+let mp = ManhattanPlot::new().with_data(data);
+```
+
+---
+
+### with_data_bp
+
+**Input mode 2** — base-pair x-coordinates resolved from a reference genome build.
+
+```rust
+pub fn with_data_bp<I, S, F, G>(self, iter: I, build: GenomeBuild) -> Self
+where
+    I: IntoIterator<Item = (S, F, G)>,
+    S: Into<String>,
+    F: Into<f64>,
+    G: Into<f64>,
+```
+
+Accepts `(chrom, bp_position, pvalue)` triplets. Each SNP's x coordinate is computed as the chromosome's cumulative offset plus its base-pair position.
+
+<ParamField path="iter" type="impl IntoIterator<Item = (String, f64, f64)>">
+  Iterator of `(chromosome_name, base_pair_position, p_value)` triplets
+</ParamField>
+
+<ParamField path="build" type="GenomeBuild">
+  Reference genome build (`Hg19`, `Hg38`, `T2T`, or `Custom`)
+</ParamField>
+
+**Use when:** Standard GWAS output with base-pair positions.
+
+**Example:**
+```rust
+use kuva::plot::{ManhattanPlot, GenomeBuild};
+
+let data = vec![("1", 100_000_000_f64, 3e-10_f64), ("6", 50_000_000_f64, 8e-9)];
+let mp = ManhattanPlot::new().with_data_bp(data, GenomeBuild::Hg38);
+```
+
+---
+
+### with_data_x
+
+**Input mode 3** — pre-computed cumulative x-coordinates.
+
+```rust
+pub fn with_data_x<I, S, F, G>(self, iter: I) -> Self
+where
+    I: IntoIterator<Item = (S, F, G)>,
+    S: Into<String>,
+    F: Into<f64>,
+    G: Into<f64>,
+```
+
+Accepts `(chrom, x, pvalue)` triplets where `x` is already in the cumulative coordinate system you want.
+
+<ParamField path="iter" type="impl IntoIterator<Item = (String, f64, f64)>">
+  Iterator of `(chromosome_name, cumulative_x, p_value)` triplets
+</ParamField>
+
+**Use when:** Custom or non-human genomes, or when you want full control over x positioning.
+
+**Example:**
+```rust
+let data = vec![
+    ("A",  10.0_f64, 0.42_f64), ("A", 20.0, 3e-8),
+    ("B", 120.0,     0.17),     ("B", 130.0, 5e-6),
+];
+let mp = ManhattanPlot::new().with_data_x(data);
+```
+
+## Threshold Configuration
+
+### with_genome_wide
+
+Set the genome-wide significance threshold in −log₁₀ scale.
+
+```rust
+pub fn with_genome_wide(self, threshold: f64) -> Self
+```
+
+<ParamField path="threshold" type="f64">
+  Significance threshold in −log₁₀ scale (default: `7.301` for p = 5×10⁻⁸)
+</ParamField>
+
+A dashed red line is drawn at this y position. Only points above this threshold are candidates for `with_label_top` labels.
+
+---
+
+### with_suggestive
+
+Set the suggestive significance threshold in −log₁₀ scale.
+
+```rust
+pub fn with_suggestive(self, threshold: f64) -> Self
+```
+
+<ParamField path="threshold" type="f64">
+  Suggestive threshold in −log₁₀ scale (default: `5.0` for p = 1×10⁻⁵)
+</ParamField>
+
+A dashed gray line is drawn at this y position.
+
+## Color Configuration
+
+### with_color_a
+
+Set the color for even-indexed chromosomes (0, 2, 4, …).
+
+```rust
+pub fn with_color_a<S: Into<String>>(self, color: S) -> Self
+```
+
+<ParamField path="color" type="String">
+  CSS color string (default: `"steelblue"`)
+</ParamField>
+
+Ignored when a full `Palette` is set via `with_palette`.
+
+---
+
+### with_color_b
+
+Set the color for odd-indexed chromosomes (1, 3, 5, …).
+
+```rust
+pub fn with_color_b<S: Into<String>>(self, color: S) -> Self
+```
+
+<ParamField path="color" type="String">
+  CSS color string (default: `"#5aadcb"`)
+</ParamField>
+
+Ignored when a full `Palette` is set via `with_palette`.
+
+---
+
+### with_palette
+
+Override the alternating two-color scheme with a full palette.
+
+```rust
+pub fn with_palette(self, palette: Palette) -> Self
+```
+
+<ParamField path="palette" type="Palette">
+  Color palette (colors cycle with modulo wrapping across chromosomes)
+</ParamField>
+
+**Example:**
+```rust
+use kuva::Palette;
+
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, GenomeBuild::Hg38)
+    .with_palette(Palette::tol_bright());
+```
+
+## Point Configuration
+
+### with_point_size
+
+Set the radius of each data point in pixels.
+
+```rust
+pub fn with_point_size(self, size: f64) -> Self
+```
+
+<ParamField path="size" type="f64">
+  Point radius in pixels (default: `2.5`)
+</ParamField>
+
+---
+
+### with_pvalue_floor
+
+Set an explicit p-value floor for the −log₁₀ transform.
+
+```rust
+pub fn with_pvalue_floor(self, floor: f64) -> Self
+```
+
+<ParamField path="floor" type="f64">
+  Minimum p-value before log transformation
+</ParamField>
+
+Points with `pvalue == 0.0` are clamped to this value. When not set, the floor is inferred as the minimum non-zero p-value in the data.
+
+## Label Configuration
+
+### with_label_top
+
+Label the `n` most significant points above the genome-wide threshold.
+
+```rust
+pub fn with_label_top(self, n: usize) -> Self
+```
+
+<ParamField path="n" type="usize">
+  Number of top points to label (default: `0`)
+</ParamField>
+
+Points are selected by lowest p-value among those exceeding `genome_wide`.
+
+**Example:**
+```rust
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, GenomeBuild::Hg38)
+    .with_label_top(10);  // label the 10 most significant hits
+```
+
+---
+
+### with_label_style
+
+Set the label placement style.
+
+```rust
+pub fn with_label_style(self, style: LabelStyle) -> Self
+```
+
+<ParamField path="style" type="LabelStyle">
+  Label placement style (default: `LabelStyle::Nudge`)
+</ParamField>
+
+**Options:**
+- `LabelStyle::Nudge` — labels sorted by x and nudged vertically to reduce overlap (best default)
+- `LabelStyle::Exact` — labels at exact point position; may overlap
+- `LabelStyle::Arrow { offset_x, offset_y }` — labels offset by `(offset_x, offset_y)` px with a gray leader line
+
+**Example:**
+```rust
+use kuva::plot::LabelStyle;
+
+let mp = ManhattanPlot::new()
+    .with_label_top(10)
+    .with_label_style(LabelStyle::Arrow { offset_x: 10.0, offset_y: 14.0 });
+```
+
+---
+
+### with_point_labels
+
+Attach gene or SNP labels to individual points by `(chromosome, x, label)`.
+
+```rust
+pub fn with_point_labels<I, S, F, L>(self, iter: I) -> Self
+where
+    I: IntoIterator<Item = (S, F, L)>,
+    S: Into<String>,
+    F: Into<f64>,
+    L: Into<String>,
+```
+
+<ParamField path="iter" type="impl IntoIterator<Item = (String, f64, String)>">
+  Iterator of `(chromosome, x_position, label)` triplets
+</ParamField>
+
+The `x` value must match the coordinate assigned at data-load time. Matching uses a tolerance of ±0.5.
+
+**Example:**
+```rust
+let mp = ManhattanPlot::new()
+    .with_data_x(data)
+    .with_point_labels(vec![
+        ("1",  40.0, "BRCA2"),
+        ("2", 140.0, "TP53"),
+    ]);
+```
+
+## Legend
+
+### with_legend
+
+Enable a legend showing genome-wide and suggestive threshold line entries.
+
+```rust
+pub fn with_legend<S: Into<String>>(self, label: S) -> Self
+```
+
+<ParamField path="label" type="String">
+  Legend label (must be set to enable the legend)
+</ParamField>
+
+**Example:**
+```rust
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, GenomeBuild::Hg38)
+    .with_legend("GWAS thresholds");
+```
+
+## GenomeBuild Enum
+
+Reference genome chromosome sizes used for cumulative x-coordinate layout.
+
+### Variants
+
+- `GenomeBuild::Hg19` — GRCh37 / hg19 (24 chromosomes: 1–22, X, Y plus MT)
+- `GenomeBuild::Hg38` — GRCh38 / hg38 (24 chromosomes: 1–22, X, Y plus MT)
+- `GenomeBuild::T2T` — T2T-CHM13 v2.0 / hs1 (complete telomere-to-telomere assembly)
+- `GenomeBuild::Custom(Vec<(String, u64)>)` — User-supplied `(chrom_name, size_in_bp)` list
+
+**Example:**
+```rust
+use kuva::plot::GenomeBuild;
+
+let build = GenomeBuild::Custom(vec![
+    ("chr1".to_string(), 120_000_000),
+    ("chr2".to_string(),  95_000_000),
+    ("chrX".to_string(),  55_000_000),
+]);
+```
+
+## Full Example
+
+```rust
+use kuva::plot::{ManhattanPlot, GenomeBuild};
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+// (chrom, bp_position, pvalue) triplets from PLINK/GCTA output
+let data: Vec<(String, f64, f64)> = vec![];  // ...your data here
+
+let mp = ManhattanPlot::new()
+    .with_data_bp(data, GenomeBuild::Hg38)
+    .with_label_top(10)
+    .with_legend("GWAS thresholds");
+
+let plots = vec![Plot::Manhattan(mp)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("GWAS — Base-pair Coordinates (GRCh38)")
+    .with_x_label("Chromosome")
+    .with_y_label("−log₁₀(p-value)");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("manhattan.svg", svg).unwrap();
+```

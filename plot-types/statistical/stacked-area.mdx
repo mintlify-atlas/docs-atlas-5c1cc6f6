@@ -1,0 +1,262 @@
+---
+title: StackedAreaPlot
+description: Multiple series stacked on top of each other showing cumulative totals over a continuous axis
+---
+
+A stacked area chart places multiple series on top of each other so the reader can see both the individual contribution of each series and the combined total at any x position. It is ideal for showing how a total is composed of parts over a continuous axis — typically time.
+
+## When to Use
+
+- **Compositional time series**: Show how components contribute to a total over time
+- **Budget allocation**: Display spending across categories over months
+- **Market share**: Track relative contributions of competitors
+- **Resource usage**: Visualize CPU/memory/disk usage by process
+- **Population demographics**: Show age group distribution over years
+- **Any part-to-whole over time**: When cumulative total matters
+
+## Basic Example
+
+```rust
+use kuva::plot::StackedAreaPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let months: Vec<f64> = (1..=12).map(|m| m as f64).collect();
+
+let sa = StackedAreaPlot::new()
+    .with_x(months)
+    .with_series([10.0, 12.0, 15.0, 18.0, 14.0, 20.0,
+                  22.0, 19.0, 25.0, 28.0, 24.0, 30.0])
+    .with_color("steelblue").with_legend("Group A")
+    .with_series([ 5.0,  6.0,  8.0,  7.0,  9.0, 10.0,
+                  11.0, 10.0, 12.0, 14.0, 13.0, 15.0])
+    .with_color("orange").with_legend("Group B");
+
+let plots = vec![Plot::StackedArea(sa)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Monthly Counts")
+    .with_x_label("Month")
+    .with_y_label("Count");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("stacked_area.svg", svg).unwrap();
+```
+
+## Building a Chart
+
+### Step 1: Set x values
+
+```rust
+let months: Vec<f64> = (1..=12).map(|m| m as f64).collect();
+let sa = StackedAreaPlot::new().with_x(months);
+```
+
+Call `with_x()` before adding any series. Accepts any numeric type via `Into<f64>`.
+
+### Step 2: Add series
+
+Add each series with `with_series()`, then immediately chain `with_color()` and `with_legend()` to configure that series.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([10.0, 20.0, 15.0])
+    .with_color("steelblue").with_legend("Series A")
+    .with_series([5.0, 8.0, 6.0])
+    .with_color("orange").with_legend("Series B");
+```
+
+These methods operate on the **most recently added** series.
+
+### Step 3: Optional normalization
+
+Enable 100% percent-stacking with `with_normalized()`.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([30.0, 40.0, 35.0]).with_legend("A")
+    .with_series([20.0, 15.0, 25.0]).with_legend("B")
+    .with_normalized();
+```
+
+Each column is rescaled so all series sum to 100% at every x value.
+
+## Key Methods
+
+### `with_x(x: impl IntoIterator<Item = T>)`
+
+Set x-axis values shared by all series. Call before adding series.
+
+```rust
+let months: Vec<f64> = (1..=12).map(|m| m as f64).collect();
+let sa = StackedAreaPlot::new().with_x(months);
+```
+
+### `with_series(y: impl IntoIterator<Item = T>)`
+
+Append a new series. Chain `with_color()` and `with_legend()` immediately after.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([10.0, 20.0, 15.0])
+    .with_color("steelblue").with_legend("Series A");
+```
+
+### `with_color(color: impl Into<String>)`
+
+Set fill color of the most recently added series. Accepts any CSS color string.
+
+```rust
+.with_series([10.0, 20.0, 15.0])
+.with_color("steelblue")
+```
+
+When not called, series falls back to the built-in palette: `steelblue`, `orange`, `green`, `red`, `purple`, `brown`, `pink`, `gray` (cycling for >8 series).
+
+### `with_legend(label: impl Into<String>)`
+
+Set legend label of the most recently added series. Series without a label are not shown in the legend.
+
+```rust
+.with_series([10.0, 20.0, 15.0])
+.with_legend("Group A")
+```
+
+### `with_fill_opacity(opacity: f64)`
+
+Set fill opacity applied to every band (default `0.7`). Valid range [0.0, 1.0].
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_fill_opacity(0.8);
+```
+
+### `with_stroke_width(width: f64)`
+
+Set stroke width for the top-edge line on each band (default `1.5`).
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_stroke_width(2.0);
+```
+
+### `with_strokes(show: bool)`
+
+Show or hide the stroke along the top edge of each band (default `true`).
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_strokes(false);  // flat, borderless bands
+```
+
+### `with_normalized()`
+
+Enable 100% percent-stacking. Each column is normalized so all series sum to 100% at every x value.
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0])
+    .with_series([30.0, 40.0, 35.0]).with_legend("A")
+    .with_series([20.0, 15.0, 25.0]).with_legend("B")
+    .with_normalized();
+```
+
+Use this to emphasize proportional composition rather than absolute magnitude.
+
+### `with_legend_position(pos: LegendPosition)`
+
+Set legend box placement corner (default `TopRight`).
+
+```rust
+use kuva::plot::LegendPosition;
+
+let sa = StackedAreaPlot::new()
+    .with_legend_position(LegendPosition::BottomLeft);
+```
+
+Options: `TopRight`, `TopLeft`, `BottomRight`, `BottomLeft`.
+
+## Examples
+
+### Absolute Stacking
+
+```rust
+let months: Vec<f64> = (1..=12).map(|m| m as f64).collect();
+
+let sa = StackedAreaPlot::new()
+    .with_x(months)
+    .with_series([10.0, 12.0, 15.0, 18.0, 14.0, 20.0,
+                  22.0, 19.0, 25.0, 28.0, 24.0, 30.0])
+    .with_color("steelblue").with_legend("Product A")
+    .with_series([5.0, 6.0, 8.0, 7.0, 9.0, 10.0,
+                  11.0, 10.0, 12.0, 14.0, 13.0, 15.0])
+    .with_color("orange").with_legend("Product B")
+    .with_series([3.0, 4.0, 4.0, 5.0, 6.0, 7.0,
+                  8.0, 7.0, 9.0, 10.0, 9.0, 11.0])
+    .with_color("green").with_legend("Product C");
+
+let plots = vec![Plot::StackedArea(sa)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Monthly Sales by Product")
+    .with_x_label("Month")
+    .with_y_label("Units Sold");
+```
+
+Shows both individual contributions and cumulative total.
+
+### Normalized (100% Stacking)
+
+```rust
+let months: Vec<f64> = (1..=12).map(|m| m as f64).collect();
+
+let sa = StackedAreaPlot::new()
+    .with_x(months)
+    .with_series([10.0, 12.0, 15.0, 18.0, 14.0, 20.0,
+                  22.0, 19.0, 25.0, 28.0, 24.0, 30.0])
+    .with_color("steelblue").with_legend("Product A")
+    .with_series([5.0, 6.0, 8.0, 7.0, 9.0, 10.0,
+                  11.0, 10.0, 12.0, 14.0, 13.0, 15.0])
+    .with_color("orange").with_legend("Product B")
+    .with_series([3.0, 4.0, 4.0, 5.0, 6.0, 7.0,
+                  8.0, 7.0, 9.0, 10.0, 9.0, 11.0])
+    .with_color("green").with_legend("Product C")
+    .with_normalized();
+
+let plots = vec![Plot::StackedArea(sa)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Market Share by Product (%)")
+    .with_x_label("Month")
+    .with_y_label("Percentage");
+```
+
+Emphasizes relative proportions; y-axis spans 0–100%.
+
+### Custom Styling
+
+```rust
+let sa = StackedAreaPlot::new()
+    .with_x([1.0, 2.0, 3.0, 4.0, 5.0])
+    .with_series([10.0, 15.0, 12.0, 18.0, 20.0])
+    .with_color("#3498db").with_legend("Series A")
+    .with_series([8.0, 10.0, 9.0, 12.0, 14.0])
+    .with_color("#e74c3c").with_legend("Series B")
+    .with_fill_opacity(0.8)
+    .with_stroke_width(2.0)
+    .with_strokes(true)
+    .with_legend_position(LegendPosition::BottomRight);
+```
+
+Custom colors, higher opacity, thicker strokes, legend at bottom-right.
+
+## Legend
+
+The legend shows all series with defined labels. Position is controlled by `with_legend_position()` (default top-right).
+
+## See Also
+
+- [BandPlot](/plot-types/statistical/band) — For single confidence bands
+- [AreaPlot](/plot-types/basic/area) — For single filled areas (not stacked)

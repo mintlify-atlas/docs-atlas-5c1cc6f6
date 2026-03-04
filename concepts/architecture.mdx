@@ -1,0 +1,208 @@
+---
+title: Architecture Overview
+description: Understanding Kuva's rendering pipeline and core design principles
+---
+
+## Overview
+
+Kuva follows a four-stage rendering pipeline that transforms high-level plot definitions into backend-specific output. This architecture separates concerns and allows the same plot definition to be rendered to SVG, PNG, PDF, or terminal output.
+
+## Rendering Pipeline
+
+The core pipeline follows this flow:
+
+```text
+plot definition  →  Layout  →  Scene (primitives)  →  backend output
+```
+
+### Stage 1: Plot Definition
+
+Plots are defined using builder APIs for specific plot types:
+
+```rust
+use kuva::plot::scatter::ScatterPlot;
+
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0_f64, 2.0), (3.0, 4.0)])
+    .with_color("steelblue")
+    .with_size(5.0);
+```
+
+Each plot type implements its own builder pattern with type-specific configuration methods. See [Plot System](/concepts/plots) for details.
+
+### Stage 2: Layout
+
+The `Layout` defines the coordinate system, axes configuration, and visual properties:
+
+```rust
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plots: Vec<Plot> = vec![scatter.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("My Plot")
+    .with_x_label("X Axis")
+    .with_y_label("Y Axis");
+```
+
+The `Layout::auto_from_plots()` method automatically computes:
+
+- Axis ranges by examining plot bounds
+- Tick count and positions
+- Legend and colorbar requirements
+- Categorical axis labels (for bar, box, violin plots)
+
+See [Layout System](/concepts/layouts) for complete configuration options.
+
+### Stage 3: Scene Generation
+
+The `render_multiple()` function transforms plots + layout into a `Scene` containing rendering primitives:
+
+```rust
+use kuva::render::render::render_multiple;
+
+let scene = render_multiple(plots, layout);
+```
+
+The `Scene` struct contains:
+
+- Width and height
+- Background color
+- Font family and text color
+- Vector of `Primitive` elements:
+  - `Circle` - for scatter points
+  - `Line` - for axes, grid lines, connections
+  - `Path` - for complex shapes (lines, bands, contours)
+  - `Rect` - for bars, heatmap cells, filled regions
+  - `Text` - for labels, titles, tick marks
+  - `GroupStart`/`GroupEnd` - for transforms and layering
+
+Primitives are backend-agnostic and represent the final rendered geometry in logical coordinates.
+
+### Stage 4: Backend Rendering
+
+Backends convert the `Scene` into final output format:
+
+```rust
+use kuva::backend::svg::SvgBackend;
+
+// SVG backend (always available)
+let svg = SvgBackend.render_scene(&scene);
+std::fs::write("plot.svg", svg).unwrap();
+```
+
+```rust
+// PNG backend (requires "png" feature)
+use kuva::backend::png::PngBackend;
+
+let png_bytes = PngBackend::new()
+    .with_scale(2.0)  // 2x retina quality
+    .render_scene(&scene)
+    .expect("PNG rendering failed");
+```
+
+```rust
+// PDF backend (requires "pdf" feature)
+use kuva::backend::pdf::PdfBackend;
+
+let pdf_bytes = PdfBackend::new()
+    .render_scene(&scene)
+    .expect("PDF rendering failed");
+```
+
+```rust
+// Terminal backend (always available)
+use kuva::backend::terminal::TerminalBackend;
+
+let terminal_str = TerminalBackend::new(80, 24)  // cols, rows
+    .render_scene(&scene);
+println!("{}", terminal_str);
+```
+
+See [Backend System](/concepts/backends) for backend-specific details.
+
+## Convenience Functions
+
+For simple cases, Kuva provides one-shot rendering functions that collapse the pipeline:
+
+```rust
+use kuva::{render_to_svg, render_to_png, render_to_pdf};
+use kuva::render::plots::Plot;
+use kuva::render::layout::Layout;
+
+// SVG
+let svg = render_to_svg(plots.clone(), layout.clone());
+
+// PNG (requires "png" feature)
+let png_bytes = render_to_png(plots.clone(), layout.clone(), 2.0)
+    .expect("PNG failed");
+
+// PDF (requires "pdf" feature)
+let pdf_bytes = render_to_pdf(plots, layout)
+    .expect("PDF failed");
+```
+
+These functions internally call `render_multiple()` and the appropriate backend.
+
+## Source Code References
+
+- Pipeline definition: `src/lib.rs:3-13`
+- Scene struct: `src/render/render.rs:92-102`
+- Primitive enum: `src/render/render.rs:35-83`
+- Layout computation: `src/render/layout.rs:213-544`
+
+## Design Principles
+
+### Separation of Concerns
+
+Each stage has a single responsibility:
+
+- **Plots** define what data to show
+- **Layout** defines where and how to show it
+- **Scene** defines the abstract geometry
+- **Backends** define the output format
+
+### Type Safety
+
+Plot types are strongly typed. The `Plot` enum (src/render/plots.rs:30-56) wraps all plot types:
+
+```rust
+pub enum Plot {
+    Scatter(ScatterPlot),
+    Line(LinePlot),
+    Bar(BarPlot),
+    Histogram(Histogram),
+    // ... 20+ plot types
+}
+```
+
+Each plot type implements `Into<Plot>` for ergonomic collection into `Vec<Plot>`.
+
+### Backend Agnostic
+
+The `Scene` contains only abstract primitives. Backends independently interpret these primitives:
+
+- **SVG**: Direct mapping to SVG elements
+- **PNG**: SVG → resvg → rasterization
+- **PDF**: SVG → svg2pdf → PDF primitives
+- **Terminal**: Primitives → braille dots + box-drawing characters
+
+### Automatic Configuration
+
+`Layout::auto_from_plots()` inspects plot types and data to automatically configure:
+
+- Axis ranges with smart padding
+- Log scale handling
+- Categorical vs continuous axes
+- Legend and colorbar presence
+- Grid visibility
+- Tick formatting
+
+Manual overrides are always available via builder methods.
+
+## Next Steps
+
+- [Plot System](/concepts/plots) - Creating and configuring plots
+- [Layout System](/concepts/layouts) - Customizing axes and appearance
+- [Theme System](/concepts/themes-palettes) - Visual styling
+- [Backend System](/concepts/backends) - Output formats

@@ -1,0 +1,399 @@
+---
+title: Themes and Palettes
+description: Visual styling with built-in themes and color palettes
+---
+
+## Overview
+
+Kuva separates visual styling into two systems:
+
+- **Themes** control plot chrome (axes, grid, background, text)
+- **Palettes** provide color sequences for multi-element plots
+
+Themes and palettes are independent and can be mixed freely.
+
+## Theme System
+
+The `Theme` struct (src/render/theme.rs:1-98) controls all non-data colors:
+
+```rust
+pub struct Theme {
+    pub background: String,       // Plot background
+    pub axis_color: String,       // Axis lines
+    pub grid_color: String,       // Grid lines
+    pub tick_color: String,       // Tick marks
+    pub text_color: String,       // All text
+    pub legend_bg: String,        // Legend background
+    pub legend_border: String,    // Legend border
+    pub pie_leader: String,       // Pie chart leader lines
+    pub box_median: String,       // Box plot median line
+    pub violin_border: String,    // Violin plot outline
+    pub colorbar_border: String,  // Colorbar outline
+    pub font_family: Option<String>,
+    pub show_grid: bool,
+}
+```
+
+### Built-in Themes
+
+Kuva provides four built-in themes:
+
+#### Light (Default)
+
+```rust
+use kuva::render::theme::Theme;
+use kuva::render::layout::Layout;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::light());
+```
+
+- White background
+- Black axes and text
+- Light gray grid (`#ccc`)
+- Best for printed documents and presentations
+
+#### Dark
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark());
+```
+
+- Dark gray background (`#1e1e1e`)
+- Light gray axes and text (`#cccccc`, `#e0e0e0`)
+- Dark grid (`#444444`)
+- Ideal for dark-mode interfaces and terminals
+
+#### Minimal
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::minimal());
+```
+
+- White background
+- Black axes and text
+- Very light grid (`#e0e0e0`)
+- No legend border
+- Serif font family
+- Grid disabled by default
+- Best for publication-quality figures
+
+#### Solarized
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::solarized());
+```
+
+- Solarized Light base colors
+- Background: `#fdf6e3`
+- Accent: `#586e75`
+- Text: `#657b83`
+- Popular among developers
+
+### Custom Themes
+
+Create custom themes by constructing the `Theme` struct directly:
+
+```rust
+use kuva::render::theme::Theme;
+
+let custom = Theme {
+    background: "#f5f5f5".into(),
+    axis_color: "#333333".into(),
+    grid_color: "#dddddd".into(),
+    tick_color: "#333333".into(),
+    text_color: "#000000".into(),
+    legend_bg: "white".into(),
+    legend_border: "#999999".into(),
+    pie_leader: "#666666".into(),
+    box_median: "white".into(),
+    violin_border: "#333333".into(),
+    colorbar_border: "#333333".into(),
+    font_family: Some("Helvetica".into()),
+    show_grid: true,
+};
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(custom);
+```
+
+All color fields accept CSS color strings: named colors (`"red"`), hex (`"#ff0000"`), or rgb (`"rgb(255,0,0)"`).
+
+### Theme Application
+
+Themes are applied during scene generation (src/render/render.rs:126-129):
+
+```rust
+fn apply_theme(scene: &mut Scene, theme: &Theme) {
+    scene.background_color = Some(theme.background.clone());
+    scene.text_color = Some(theme.text_color.clone());
+}
+```
+
+Theme colors are used throughout rendering:
+- Axes: `axis_color`
+- Grid lines: `grid_color`
+- Tick marks: `tick_color`
+- All text: `text_color`
+- Legend background/border: `legend_bg`, `legend_border`
+
+## Palette System
+
+The `Palette` struct (src/render/palette.rs:3-185) provides sequences of colors for multi-element plots:
+
+```rust
+pub struct Palette {
+    pub name: &'static str,
+    colors: Vec<String>,
+}
+```
+
+Palettes cycle through colors when more elements than colors are present.
+
+### Colorblind-Safe Palettes
+
+#### Wong (Okabe-Ito) - 8 colors
+
+```rust
+use kuva::render::palette::Palette;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::wong());
+
+// Also available as okabe_ito()
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::okabe_ito());
+```
+
+Colors: Orange, Sky Blue, Green, Yellow, Blue, Vermillion, Purple, Black
+
+Reference: Bang Wong, *Nature Methods* 2011. The gold standard for colorblind-safe visualization.
+
+#### Paul Tol Palettes
+
+**Bright** - 7 colors, high contrast
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::tol_bright());
+```
+
+**Muted** - 10 colors, softer
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::tol_muted());
+```
+
+**Light** - 9 colors, pastel
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::tol_light());
+```
+
+All Paul Tol palettes are colorblind-safe.
+
+#### IBM Design Language - 5 colors
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::ibm());
+```
+
+Colors: Blue, Purple, Pink, Orange, Yellow
+
+#### By Colorblind Condition
+
+Convenience methods that map to recommended palettes:
+
+```rust
+// Deuteranopia (red-green, ~6% of males) → Wong
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::deuteranopia());
+
+// Protanopia (red-green, ~1% of males) → Wong
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::protanopia());
+
+// Tritanopia (blue-yellow, rare) → Tol Bright
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::tritanopia());
+```
+
+### General-Purpose Palettes
+
+#### Category10 (Default) - 10 colors
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::category10());
+```
+
+Tableau 10 / D3 Category10 - the default palette. Balanced, familiar colors.
+
+#### Pastel - 10 colors
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::pastel());
+```
+
+Softer, desaturated version of Category10.
+
+#### Bold - 10 colors
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::bold());
+```
+
+High-saturation, vivid colors.
+
+### Custom Palettes
+
+```rust
+use kuva::render::palette::Palette;
+
+let custom = Palette::custom(
+    "my_palette",
+    vec![
+        "#e41a1c".to_string(),
+        "#377eb8".to_string(),
+        "#4daf4a".to_string(),
+        "#984ea3".to_string(),
+    ]
+);
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(custom);
+```
+
+### Palette Usage
+
+Palettes are applied to multi-element plots:
+
+- **BarPlot** with multiple bars per group
+- **Line/Scatter** when multiple plots share a layout
+- **PiePlot** slices
+- **StackedAreaPlot** series
+- **Chord/Sankey** nodes
+
+Single-element plots use their explicit `.with_color()` setting:
+
+```rust
+// This plot uses its explicit color, not the palette
+let scatter = ScatterPlot::new()
+    .with_data(data)
+    .with_color("steelblue");  // Explicit color takes precedence
+
+// Multiple plots use palette cycling when no explicit color
+let plots: Vec<Plot> = vec![
+    ScatterPlot::new().with_data(data1).into(),  // Uses palette[0]
+    ScatterPlot::new().with_data(data2).into(),  // Uses palette[1]
+    ScatterPlot::new().with_data(data3).into(),  // Uses palette[2]
+];
+```
+
+### Palette Iteration
+
+Access palette colors programmatically:
+
+```rust
+let palette = Palette::wong();
+
+// Index (wraps around)
+let color = &palette[0];  // First color
+let color = &palette[10]; // Wraps to third color (10 % 8 = 2)
+
+// Iterate (cycles forever)
+for (i, color) in palette.iter().enumerate().take(20) {
+    println!("Color {}: {}", i, color);
+}
+
+// Get all colors
+let colors = palette.colors();  // &[String]
+let count = palette.len();      // usize
+```
+
+## Color Maps
+
+For continuous color mappings (heatmaps, contours), use `ColorMap` from the plot types:
+
+```rust
+use kuva::plot::Heatmap;
+use kuva::render::ColorMap;
+
+let heatmap = Heatmap::new()
+    .with_data(data)
+    .with_color_map(ColorMap::Viridis);  // or Plasma, Inferno, Magma, Turbo
+```
+
+Color maps are separate from palettes and themes. See individual plot type documentation for available color maps.
+
+## Combining Themes and Palettes
+
+```rust
+use kuva::render::theme::Theme;
+use kuva::render::palette::Palette;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark())        // Dark background/chrome
+    .with_palette(Palette::wong());   // Colorblind-safe data colors
+```
+
+Themes and palettes are completely independent:
+- Theme controls plot infrastructure
+- Palette controls data representation
+
+## Accessibility Best Practices
+
+### Colorblind Safety
+
+1. **Use colorblind-safe palettes** for categorical data:
+   ```rust
+   .with_palette(Palette::wong())
+   ```
+
+2. **Combine color with other visual channels** (shape, size, line style):
+   ```rust
+   ScatterPlot::new()
+       .with_marker(MarkerShape::Circle)
+       .with_size(7.0)
+       .with_color("steelblue")
+   ```
+
+3. **Test with simulations**: Use tools like [Coblis](https://www.color-blindness.com/coblis-color-blindness-simulator/) to preview plots.
+
+### High Contrast
+
+```rust
+// High contrast theme for presentations
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::light())
+    .with_palette(Palette::bold());
+```
+
+### Dark Mode
+
+```rust
+// Terminal/IDE integration
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark())
+    .with_palette(Palette::tol_bright());  // High contrast on dark
+```
+
+## Source Code References
+
+- Theme struct: `src/render/theme.rs:1-98`
+- Palette struct: `src/render/palette.rs:3-185`
+- Theme application: `src/render/render.rs:126-129`
+
+## Next Steps
+
+- [Layout System](/concepts/layouts) - Applying themes and palettes
+- [Architecture Overview](/concepts/architecture) - Rendering pipeline
+- [Plot Types](/plot-types) - Per-plot color configuration

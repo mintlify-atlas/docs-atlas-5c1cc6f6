@@ -1,0 +1,697 @@
+---
+title: Layout
+description: Configure plot dimensions, axes, scales, themes, and visual properties
+---
+
+The `Layout` struct controls all aspects of plot layout including dimensions, axis ranges, scales, labels, themes, and formatting. It provides a builder API for fluent configuration.
+
+## Constructor
+
+### new
+
+```rust
+pub fn new(x_range: (f64, f64), y_range: (f64, f64)) -> Self
+```
+
+Create a new layout with explicit axis ranges.
+
+<ParamField path="x_range" type="(f64, f64)" required>
+  The minimum and maximum values for the x-axis.
+</ParamField>
+
+<ParamField path="y_range" type="(f64, f64)" required>
+  The minimum and maximum values for the y-axis.
+</ParamField>
+
+**Example:**
+
+```rust
+let layout = Layout::new((0.0, 10.0), (0.0, 100.0));
+```
+
+---
+
+## Auto-generation Methods
+
+### auto_from_plots
+
+```rust
+pub fn auto_from_plots(plots: &[Plot]) -> Self
+```
+
+Automatically compute layout from a collection of plots. This analyzes the data bounds, detects categorical axes, configures legends and colorbars, and applies sensible defaults.
+
+<ParamField path="plots" type="&[Plot]" required>
+  A slice of plots to analyze for automatic layout configuration.
+</ParamField>
+
+**Example:**
+
+```rust
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (3.0, 4.0)]);
+
+let plots: Vec<Plot> = vec![scatter.into()];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("My Plot")
+    .with_x_label("X Axis");
+```
+
+### auto_from_data
+
+```rust
+pub fn auto_from_data(data: &[f64], x_range: std::ops::Range<f64>) -> Self
+```
+
+Create a layout from raw data values, suitable for simple histograms or distributions.
+
+<ParamField path="data" type="&[f64]" required>
+  Data values to determine y-axis range.
+</ParamField>
+
+<ParamField path="x_range" type="Range<f64>" required>
+  The range for the x-axis.
+</ParamField>
+
+### auto_from_twin_y_plots
+
+```rust
+pub fn auto_from_twin_y_plots(primary: &[Plot], secondary: &[Plot]) -> Self
+```
+
+Convenience method to auto-range both axes from separate plot lists for dual y-axis plots.
+
+<ParamField path="primary" type="&[Plot]" required>
+  Plots to render on the primary (left) y-axis.
+</ParamField>
+
+<ParamField path="secondary" type="&[Plot]" required>
+  Plots to render on the secondary (right) y-axis.
+</ParamField>
+
+---
+
+## Dimension Methods
+
+### with_width
+
+```rust
+pub fn with_width(mut self, width: f64) -> Self
+```
+
+Set the total width of the plot in pixels.
+
+<ParamField path="width" type="f64" required>
+  Width in pixels. Default is `600.0 + margins`.
+</ParamField>
+
+### with_height
+
+```rust
+pub fn with_height(mut self, height: f64) -> Self
+```
+
+Set the total height of the plot in pixels.
+
+<ParamField path="height" type="f64" required>
+  Height in pixels. Default is `450.0 + margins`.
+</ParamField>
+
+**Example:**
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_width(800.0)
+    .with_height(600.0);
+```
+
+---
+
+## Label and Title Methods
+
+### with_title
+
+```rust
+pub fn with_title<S: Into<String>>(mut self, title: S) -> Self
+```
+
+Set the plot title.
+
+<ParamField path="title" type="impl Into<String>" required>
+  The title text.
+</ParamField>
+
+### with_x_label
+
+```rust
+pub fn with_x_label<S: Into<String>>(mut self, label: S) -> Self
+```
+
+Set the x-axis label.
+
+<ParamField path="label" type="impl Into<String>" required>
+  The x-axis label text.
+</ParamField>
+
+### with_y_label
+
+```rust
+pub fn with_y_label<S: Into<String>>(mut self, label: S) -> Self
+```
+
+Set the y-axis label.
+
+<ParamField path="label" type="impl Into<String>" required>
+  The y-axis label text.
+</ParamField>
+
+**Example:**
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Gene Expression Analysis")
+    .with_x_label("Time (hours)")
+    .with_y_label("Expression Level");
+```
+
+---
+
+## Grid and Tick Methods
+
+### with_ticks
+
+```rust
+pub fn with_ticks(mut self, ticks: usize) -> Self
+```
+
+Set the number of tick marks on each axis.
+
+<ParamField path="ticks" type="usize" required>
+  Number of ticks. Default is `5`.
+</ParamField>
+
+### with_show_grid
+
+```rust
+pub fn with_show_grid(mut self, show: bool) -> Self
+```
+
+Enable or disable the grid lines.
+
+<ParamField path="show" type="bool" required>
+  `true` to show grid, `false` to hide. Default is `true`.
+</ParamField>
+
+**Example:**
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_ticks(10)
+    .with_show_grid(false);
+```
+
+---
+
+## Categorical Axis Methods
+
+### with_x_categories
+
+```rust
+pub fn with_x_categories(mut self, labels: Vec<String>) -> Self
+```
+
+Define categorical labels for the x-axis (e.g., for bar plots).
+
+<ParamField path="labels" type="Vec<String>" required>
+  Category labels in order.
+</ParamField>
+
+### with_y_categories
+
+```rust
+pub fn with_y_categories(mut self, labels: Vec<String>) -> Self
+```
+
+Define categorical labels for the y-axis.
+
+<ParamField path="labels" type="Vec<String>" required>
+  Category labels in order.
+</ParamField>
+
+---
+
+## Logarithmic Scale Methods
+
+### with_log_x
+
+```rust
+pub fn with_log_x(mut self) -> Self
+```
+
+Enable logarithmic scale for the x-axis.
+
+### with_log_y
+
+```rust
+pub fn with_log_y(mut self) -> Self
+```
+
+Enable logarithmic scale for the y-axis.
+
+### with_log_scale
+
+```rust
+pub fn with_log_scale(mut self) -> Self
+```
+
+Enable logarithmic scale for both axes.
+
+**Example:**
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_log_y()  // Log scale for y-axis only
+    .with_title("Log-scale Plot");
+```
+
+---
+
+## Legend Methods
+
+### with_legend_position
+
+```rust
+pub fn with_legend_position(mut self, pos: LegendPosition) -> Self
+```
+
+Set the position of the legend.
+
+<ParamField path="pos" type="LegendPosition" required>
+  One of: `TopRight`, `TopLeft`, `BottomRight`, `BottomLeft`, `OutsideRight`. Default is `TopRight`.
+</ParamField>
+
+**Example:**
+
+```rust
+use kuva::plot::legend::LegendPosition;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_legend_position(LegendPosition::BottomRight);
+```
+
+<Note>
+The legend is only shown when plots contain legend labels. Use `with_legend_label()` on individual plot types.
+</Note>
+
+---
+
+## Tick Format Methods
+
+### with_tick_format
+
+```rust
+pub fn with_tick_format(mut self, fmt: TickFormat) -> Self
+```
+
+Set the tick format for both x and y axes.
+
+<ParamField path="fmt" type="TickFormat" required>
+  The tick formatting style. Options: `Auto`, `Fixed(n)`, `Integer`, `Sci`, `Percent`, `Custom(fn)`.
+</ParamField>
+
+### with_x_tick_format
+
+```rust
+pub fn with_x_tick_format(mut self, fmt: TickFormat) -> Self
+```
+
+Set the tick format for the x-axis only.
+
+### with_y_tick_format
+
+```rust
+pub fn with_y_tick_format(mut self, fmt: TickFormat) -> Self
+```
+
+Set the tick format for the y-axis only.
+
+**Example:**
+
+```rust
+use kuva::render::layout::TickFormat;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_y_tick_format(TickFormat::Percent)  // Show y-axis as percentages
+    .with_x_tick_format(TickFormat::Integer); // Show x-axis as integers
+```
+
+### TickFormat Variants
+
+- **`TickFormat::Auto`**: Smart default with minimal decimals, scientific notation for extremes
+- **`TickFormat::Fixed(n)`**: Exactly `n` decimal places (e.g., `Fixed(2)` → `"3.14"`)
+- **`TickFormat::Integer`**: Round to nearest integer (e.g., `"5"`)
+- **`TickFormat::Sci`**: ASCII scientific notation (e.g., `"1.23e4"`)
+- **`TickFormat::Percent`**: Multiply by 100 and append `%` (e.g., `0.45` → `"45.0%"`)
+- **`TickFormat::Custom(fn)`**: Custom formatter function `Arc<dyn Fn(f64) -> String + Send + Sync>`
+
+---
+
+## Font and Typography Methods
+
+### with_font_family
+
+```rust
+pub fn with_font_family<S: Into<String>>(mut self, family: S) -> Self
+```
+
+Set the font family for all text in the plot.
+
+<ParamField path="family" type="impl Into<String>" required>
+  Font family name (e.g., `"Arial"`, `"Helvetica"`, `"monospace"`).
+</ParamField>
+
+### with_title_size
+
+```rust
+pub fn with_title_size(mut self, size: u32) -> Self
+```
+
+Set the title font size in pixels.
+
+<ParamField path="size" type="u32" required>
+  Font size. Default is `16`.
+</ParamField>
+
+### with_label_size
+
+```rust
+pub fn with_label_size(mut self, size: u32) -> Self
+```
+
+Set the axis label font size in pixels.
+
+<ParamField path="size" type="u32" required>
+  Font size. Default is `14`.
+</ParamField>
+
+### with_tick_size
+
+```rust
+pub fn with_tick_size(mut self, size: u32) -> Self
+```
+
+Set the tick label font size in pixels.
+
+<ParamField path="size" type="u32" required>
+  Font size. Default is `10`.
+</ParamField>
+
+### with_body_size
+
+```rust
+pub fn with_body_size(mut self, size: u32) -> Self
+```
+
+Set the body text font size (used in legends and annotations) in pixels.
+
+<ParamField path="size" type="u32" required>
+  Font size. Default is `12`.
+</ParamField>
+
+**Example:**
+
+```rust
+let layout = Layout::auto_from_plots(&plots)
+    .with_font_family("Arial")
+    .with_title_size(20)
+    .with_label_size(16)
+    .with_tick_size(12);
+```
+
+---
+
+## Theme and Color Methods
+
+### with_theme
+
+```rust
+pub fn with_theme(mut self, theme: Theme) -> Self
+```
+
+Set the overall theme (background, colors, grid style).
+
+<ParamField path="theme" type="Theme" required>
+  A `Theme` instance. Built-in themes include `Theme::default()`, `Theme::dark()`, etc.
+</ParamField>
+
+### with_palette
+
+```rust
+pub fn with_palette(mut self, palette: Palette) -> Self
+```
+
+Set the color palette for multi-series plots.
+
+<ParamField path="palette" type="Palette" required>
+  A `Palette` instance. Built-in palettes include `Palette::tableau10()`, `Palette::category10()`, etc.
+</ParamField>
+
+**Example:**
+
+```rust
+use kuva::render::theme::Theme;
+use kuva::render::palette::Palette;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_theme(Theme::dark())
+    .with_palette(Palette::tableau10());
+```
+
+---
+
+## Secondary Y-axis Methods
+
+### with_y2_range
+
+```rust
+pub fn with_y2_range(mut self, min: f64, max: f64) -> Self
+```
+
+Define a range for a secondary (right-side) y-axis.
+
+<ParamField path="min" type="f64" required>
+  Minimum value for the secondary y-axis.
+</ParamField>
+
+<ParamField path="max" type="f64" required>
+  Maximum value for the secondary y-axis.
+</ParamField>
+
+### with_y2_label
+
+```rust
+pub fn with_y2_label<S: Into<String>>(mut self, label: S) -> Self
+```
+
+Set the label for the secondary y-axis.
+
+### with_log_y2
+
+```rust
+pub fn with_log_y2(mut self) -> Self
+```
+
+Enable logarithmic scale for the secondary y-axis.
+
+### with_y2_tick_format
+
+```rust
+pub fn with_y2_tick_format(mut self, fmt: TickFormat) -> Self
+```
+
+Set the tick format for the secondary y-axis.
+
+### with_y2_auto
+
+```rust
+pub fn with_y2_auto(mut self, secondary: &[Plot]) -> Self
+```
+
+Auto-compute y2_range from secondary plots, also expanding x_range to cover them.
+
+<ParamField path="secondary" type="&[Plot]" required>
+  Plots to render on the secondary y-axis.
+</ParamField>
+
+**Example:**
+
+```rust
+let primary_plots = vec![line1.into()];
+let secondary_plots = vec![line2.into()];
+
+let layout = Layout::auto_from_twin_y_plots(&primary_plots, &secondary_plots)
+    .with_y_label("Primary")
+    .with_y2_label("Secondary");
+```
+
+---
+
+## DateTime Axis Methods
+
+### with_x_datetime
+
+```rust
+pub fn with_x_datetime(mut self, axis: DateTimeAxis) -> Self
+```
+
+Configure the x-axis to display datetime values.
+
+<ParamField path="axis" type="DateTimeAxis" required>
+  A `DateTimeAxis` configuration specifying the time unit and formatting.
+</ParamField>
+
+### with_y_datetime
+
+```rust
+pub fn with_y_datetime(mut self, axis: DateTimeAxis) -> Self
+```
+
+Configure the y-axis to display datetime values.
+
+### with_x_tick_rotate
+
+```rust
+pub fn with_x_tick_rotate(mut self, angle: f64) -> Self
+```
+
+Rotate x-axis tick labels by the specified angle in degrees (e.g., `-45.0` for diagonal labels).
+
+<ParamField path="angle" type="f64" required>
+  Rotation angle in degrees. Negative values rotate counter-clockwise.
+</ParamField>
+
+**Example:**
+
+```rust
+use kuva::render::datetime::{DateTimeAxis, DateUnit};
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_x_datetime(DateTimeAxis::new(DateUnit::Day))
+    .with_x_tick_rotate(-45.0);  // Diagonal labels
+```
+
+---
+
+## Annotation Methods
+
+### with_annotation
+
+```rust
+pub fn with_annotation(mut self, annotation: TextAnnotation) -> Self
+```
+
+Add a text annotation to the plot.
+
+<ParamField path="annotation" type="TextAnnotation" required>
+  A `TextAnnotation` instance specifying the text, position, and style.
+</ParamField>
+
+### with_reference_line
+
+```rust
+pub fn with_reference_line(mut self, line: ReferenceLine) -> Self
+```
+
+Add a reference line (horizontal or vertical) to the plot.
+
+<ParamField path="line" type="ReferenceLine" required>
+  A `ReferenceLine` instance specifying the position, orientation, and style.
+</ParamField>
+
+### with_shaded_region
+
+```rust
+pub fn with_shaded_region(mut self, region: ShadedRegion) -> Self
+```
+
+Add a shaded region to highlight a range on the plot.
+
+<ParamField path="region" type="ShadedRegion" required>
+  A `ShadedRegion` instance specifying the bounds and fill color.
+</ParamField>
+
+---
+
+## Advanced Configuration Methods
+
+### with_clamp_axis
+
+```rust
+pub fn with_clamp_axis(mut self) -> Self
+```
+
+Snap both axes to the tick boundary that just contains the data, with no extra breathing-room step. Useful for `TickFormat::Percent` where you want the axis to stop exactly at 100% instead of 110%.
+
+### with_clamp_y_axis
+
+```rust
+pub fn with_clamp_y_axis(mut self) -> Self
+```
+
+Like `with_clamp_axis` but only for the y-axis. Automatically set by `auto_from_plots` for normalized histograms.
+
+### with_term_rows
+
+```rust
+pub fn with_term_rows(mut self, rows: u32) -> Self
+```
+
+Set the number of character rows in the terminal target for terminal backend rendering.
+
+<ParamField path="rows" type="u32" required>
+  Number of terminal rows.
+</ParamField>
+
+---
+
+## Complete Example
+
+```rust
+use kuva::prelude::*;
+use kuva::render::layout::{Layout, TickFormat};
+use kuva::render::theme::Theme;
+use kuva::render::palette::Palette;
+use kuva::plot::legend::LegendPosition;
+
+// Create multiple plots
+let scatter = ScatterPlot::new()
+    .with_data(vec![(1.0, 2.0), (2.0, 4.0), (3.0, 3.5)])
+    .with_color("steelblue")
+    .with_legend_label("Data Series");
+
+let line = LinePlot::new()
+    .with_data(vec![(0.0, 1.0), (1.0, 2.0), (2.0, 3.0), (3.0, 4.0)])
+    .with_color("red")
+    .with_legend_label("Trend");
+
+let plots: Vec<Plot> = vec![scatter.into(), line.into()];
+
+// Configure comprehensive layout
+let layout = Layout::auto_from_plots(&plots)
+    .with_width(1000.0)
+    .with_height(700.0)
+    .with_title("Comprehensive Analysis")
+    .with_x_label("Time (seconds)")
+    .with_y_label("Signal Intensity")
+    .with_ticks(8)
+    .with_show_grid(true)
+    .with_y_tick_format(TickFormat::Fixed(2))
+    .with_theme(Theme::default())
+    .with_palette(Palette::tableau10())
+    .with_legend_position(LegendPosition::TopRight)
+    .with_font_family("Arial")
+    .with_title_size(18)
+    .with_label_size(14);
+
+let svg = kuva::render_to_svg(plots, layout);
+```

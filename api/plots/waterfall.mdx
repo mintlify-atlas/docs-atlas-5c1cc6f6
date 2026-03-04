@@ -1,0 +1,296 @@
+---
+title: WaterfallPlot
+description: API reference for waterfall charts showing cumulative flow with floating bars
+---
+
+A waterfall chart shows a running total as a sequence of floating bars. Each bar extends from the previous accumulated value, rising for positive deltas (green) and falling for negative deltas (red). Optional `Total` bars reset to zero and show the accumulated value, useful for intermediate subtotals.
+
+## Constructor
+
+### `new()`
+
+Create a waterfall chart with default settings.
+
+**Returns:** `WaterfallPlot`
+
+**Defaults:**
+- Bar width `0.6`
+- Green/red delta colors
+- Steelblue totals
+- No connectors
+- No value labels
+
+```rust
+use kuva::plot::WaterfallPlot;
+
+let wf = WaterfallPlot::new();
+```
+
+## Bar Types
+
+### `with_delta()`
+
+Add a floating delta bar.
+
+<ParamField path="label" type="S: Into<String>">
+  Category label shown on the x-axis
+</ParamField>
+
+<ParamField path="value" type="f64">
+  Increment or decrement applied to the running total. Positive values are colored green; negative values red.
+</ParamField>
+
+**Returns:** `Self`
+
+The bar spans from the current running total to `current + value`.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue",  850.0)
+    .with_delta("COGS",    -340.0)
+    .with_delta("OpEx",    -200.0);
+```
+
+### `with_total()`
+
+Add a summary bar that spans from zero to the current running total.
+
+<ParamField path="label" type="S: Into<String>">
+  Category label shown on the x-axis
+</ParamField>
+
+**Returns:** `Self`
+
+Rendered in `color_total` (default `"steelblue"`). The `value` field is ignored — the bar height is determined by the accumulated total at this position. Place after a sequence of delta bars to show a subtotal or at the end to show the final result.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue",  850.0)
+    .with_delta("COGS",    -340.0)
+    .with_total("Gross profit")    // subtotal
+    .with_delta("OpEx",    -200.0)
+    .with_total("Net income");     // final total
+```
+
+### `with_difference()`
+
+Add a standalone comparison bar anchored at explicit y-values.
+
+<ParamField path="label" type="S: Into<String>">
+  Category label shown on the x-axis
+</ParamField>
+
+<ParamField path="from" type="f64">
+  Starting y-value
+</ParamField>
+
+<ParamField path="to" type="f64">
+  Ending y-value
+</ParamField>
+
+**Returns:** `Self`
+
+The bar spans `[from, to]` and is green when `to > from`, red when `to < from`. It does **not** affect the running total, so it can be placed anywhere to annotate a reference comparison without disrupting the main flow.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Start", 1000.0)
+    .with_delta("Change",  150.0)
+    .with_difference("vs target", 1000.0, 1200.0)  // independent reference
+    .with_total("End");
+```
+
+## Styling
+
+### `with_bar_width()`
+
+Set the bar width as a fraction of the category slot.
+
+<ParamField path="width" type="f64">
+  Bar width in `[0.0, 1.0]` (default: 0.6)
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("A", 100.0)
+    .with_bar_width(0.8);
+```
+
+### `with_color_positive()`
+
+Set the color for positive delta bars.
+
+<ParamField path="color" type="S: Into<String>">
+  CSS color string (default: `"rgb(68,170,68)"` — green)
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue", 850.0)
+    .with_color_positive("limegreen");
+```
+
+### `with_color_negative()`
+
+Set the color for negative delta bars.
+
+<ParamField path="color" type="S: Into<String>">
+  CSS color string (default: `"rgb(204,68,68)"` — red)
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Costs", -340.0)
+    .with_color_negative("darkred");
+```
+
+### `with_color_total()`
+
+Set the color for total/subtotal bars.
+
+<ParamField path="color" type="S: Into<String>">
+  CSS color string (default: `"steelblue"`)
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_total("Total")
+    .with_color_total("navy");
+```
+
+## Annotations
+
+### `with_connectors()`
+
+Draw dashed connector lines between the top (or bottom) of consecutive bars.
+
+**Returns:** `Self`
+
+Connectors make it easier to trace the running total across wide charts.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("A", 100.0)
+    .with_delta("B", -50.0)
+    .with_connectors();
+```
+
+### `with_values()`
+
+Print the numeric value of each bar as a text label.
+
+**Returns:** `Self`
+
+Delta bars show their `value`; total bars show the accumulated total; difference bars show `to - from`.
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue", 850.0)
+    .with_total("Total")
+    .with_values();
+```
+
+## Legend
+
+### `with_legend()`
+
+Attach a legend label to this waterfall chart.
+
+<ParamField path="label" type="S: Into<String>">
+  Legend label text
+</ParamField>
+
+**Returns:** `Self`
+
+```rust
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue", 850.0)
+    .with_legend("Cash Flow");
+```
+
+## Complete Example
+
+```rust
+use kuva::plot::WaterfallPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let wf = WaterfallPlot::new()
+    .with_delta("Revenue",       850.0)
+    .with_delta("Cost of goods",-340.0)
+    .with_total("Gross profit")
+    .with_delta("Operating costs",-200.0)
+    .with_delta("Tax",           -65.0)
+    .with_total("Net income")
+    .with_connectors()
+    .with_values();
+
+let plots = vec![Plot::Waterfall(wf)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Income Statement")
+    .with_x_label("Stage")
+    .with_y_label("USD (thousands)");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("waterfall.svg", svg).unwrap();
+```
+
+## WaterfallKind Enum
+
+### Variants
+
+#### `Delta`
+
+A floating increment or decrement applied to the running total. The bar floats between the previous running total and the new one. Positive values are colored with `color_positive`; negative with `color_negative`.
+
+#### `Total`
+
+A summary bar that resets to zero and spans from zero to the current running total. Colored with `color_total`. The `value` field is ignored.
+
+#### `Difference { from: f64, to: f64 }`
+
+A standalone comparison bar anchored at explicit `[from, to]` values. This bar does **not** affect the running total — it is purely illustrative. Green when `to > from`, red when `to < from`.
+
+## Public Fields
+
+<ParamField path="bars" type="Vec<WaterfallBar>">
+  All bars in the chart
+</ParamField>
+
+<ParamField path="bar_width" type="f64">
+  Bar width as a fraction of the category slot (default: 0.6)
+</ParamField>
+
+<ParamField path="color_positive" type="String">
+  Color for positive delta bars (default: `"rgb(68,170,68)"`)
+</ParamField>
+
+<ParamField path="color_negative" type="String">
+  Color for negative delta bars (default: `"rgb(204,68,68)"`)
+</ParamField>
+
+<ParamField path="color_total" type="String">
+  Color for total/subtotal bars (default: `"steelblue"`)
+</ParamField>
+
+<ParamField path="show_connectors" type="bool">
+  When `true`, dashed connector lines are drawn between consecutive bars
+</ParamField>
+
+<ParamField path="show_values" type="bool">
+  When `true`, numeric values are printed on each bar
+</ParamField>
+
+<ParamField path="legend_label" type="Option<String>">
+  Optional legend label
+</ParamField>

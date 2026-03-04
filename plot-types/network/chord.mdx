@@ -1,0 +1,178 @@
+---
+title: ChordPlot
+description: Circular network diagrams for visualizing flow matrices and pairwise relationships
+---
+
+`ChordPlot` displays a network of N nodes arranged around a circle, connected by ribbons whose widths are proportional to flow magnitudes from an N×N matrix. Each node occupies an arc segment on the outer ring, with arc length proportional to the node's total flow (row sum of the matrix). Ribbons connect pairs of nodes, with ribbon width at each end proportional to the flow in that direction.
+
+## When to Use
+
+Chord diagrams are ideal for:
+
+- **Co-occurrence patterns** — cell type clustering, gene co-expression, species interactions
+- **Directed flows** — migration patterns, gene regulation, state transitions
+- **Symmetric relationships** — correlation matrices, shared memberships, collaborations
+- **Dense networks** — when you need to show all pairwise relationships at once
+
+## Symmetric vs Asymmetric Matrices
+
+### Symmetric (`matrix[i][j] == matrix[j][i]`)
+
+Each ribbon has equal width at both ends. Use this for undirected relationships such as co-occurrence, correlation, or shared membership.
+
+### Asymmetric (`matrix[i][j] != matrix[j][i]`)
+
+Each ribbon is wider at the end of the stronger sender. Use this for directed flows such as migration, gene regulation, or transition probabilities.
+
+## Pixel-Space Rendering
+
+The chord diagram is rendered entirely in pixel space — it does not use the standard x/y axis system. Pass the plot inside `render_multiple` as usual; `Layout::auto_from_plots` skips axis computation for chord plots. A title set on the `Layout` is still rendered.
+
+## Basic Example
+
+```rust
+use kuva::plot::ChordPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+// Symmetric co-occurrence matrix — immune cell type co-clustering
+let matrix = vec![
+    //         CD4T   CD8T    NK   Bcell   Mono
+    vec![   0.0, 120.0,  70.0,  40.0,  25.0],  // CD4 T
+    vec![ 120.0,   0.0,  88.0,  32.0,  18.0],  // CD8 T
+    vec![  70.0,  88.0,   0.0,  15.0,  35.0],  // NK
+    vec![  40.0,  32.0,  15.0,   0.0,  10.0],  // B cell
+    vec![  25.0,  18.0,  35.0,  10.0,   0.0],  // Monocyte
+];
+
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_labels(["CD4 T", "CD8 T", "NK", "B cell", "Monocyte"]);
+
+let plots = vec![Plot::Chord(chord)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("PBMC Cell Type Co-clustering");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("chord.svg", svg).unwrap();
+```
+
+## Asymmetric Directed Flows
+
+When the matrix is asymmetric, ribbons are thicker at the source end than the target end, showing directionality.
+
+```rust
+// Directed regulatory influence between transcription factors
+let matrix = vec![
+    //        TF1    TF2    TF3    TF4    TF5
+    vec![   0.0,  85.0,  20.0,  45.0,  10.0],  // TF1
+    vec![  15.0,   0.0,  65.0,  30.0,   8.0],  // TF2
+    vec![  30.0,  12.0,   0.0,  75.0,  25.0],  // TF3
+    vec![   5.0,  40.0,  18.0,   0.0,  90.0],  // TF4
+    vec![  50.0,   8.0,  35.0,  12.0,   0.0],  // TF5
+];
+
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_labels(["TF1", "TF2", "TF3", "TF4", "TF5"])
+    .with_colors(["#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4"])
+    .with_gap(3.0)
+    .with_legend("Transcription factors");
+```
+
+## Styling Options
+
+### Custom Gap Spacing
+
+Increase white space between arc segments to make individual nodes easier to distinguish:
+
+```rust
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_labels(labels)
+    .with_gap(6.0);  // default 2.0 — wider separation
+```
+
+### Ribbon Opacity
+
+Reduce opacity to make overlapping ribbons in dense diagrams easier to read:
+
+```rust
+let chord = ChordPlot::new()
+    .with_matrix(matrix)
+    .with_labels(labels)
+    .with_opacity(0.45);  // default 0.7
+```
+
+## Key Methods
+
+### `ChordPlot::new()`
+
+Create a chord plot with default settings:
+- Gap: 2.0 degrees
+- Pad fraction: 0.85 (controls arc thickness)
+- Ribbon opacity: 0.7
+- Colors: category10 palette (cycles if more than 10 nodes)
+
+### `.with_matrix(matrix: Vec<Vec<f64>>)`
+
+Set the N×N flow matrix. `matrix[i][j]` is the flow from node i to node j. The matrix must be square. Diagonal entries are typically `0.0` (self-loops are not rendered).
+
+Arc lengths on the outer ring are proportional to each node's total outgoing flow (row sum). Ribbon widths at each end reflect the flow in each direction independently — so an asymmetric matrix produces ribbons that are thicker at the stronger source.
+
+### `.with_labels<S: Into<String>>(labels: impl IntoIterator<Item = S>)`
+
+Set the node labels shown outside the arc segments. Must provide one label per row/column of the matrix. Labels are rendered as text outside the outer ring.
+
+### `.with_colors<S: Into<String>>(colors: impl IntoIterator<Item = S>)`
+
+Set explicit per-node fill colors. Provide one color per node. Accepts any CSS color string (named, hex, `rgb(…)`). When not called, the `category10` palette is used automatically, cycling if there are more than ten nodes.
+
+### `.with_gap(degrees: f64)`
+
+Set the gap between adjacent arc segments in degrees (default `2.0`). Larger values increase the white space between nodes, making individual arcs easier to distinguish. Total gap = `n_nodes * gap_degrees`; very large values compress the arc lengths.
+
+### `.with_opacity(f: f64)`
+
+Set the ribbon fill opacity (default `0.7`). Valid range is `0.0` (fully transparent) to `1.0` (fully opaque). Reducing opacity makes overlapping ribbons in dense diagrams easier to read by letting the arcs and other ribbons show through.
+
+### `.with_legend<S: Into<String>>(label: S)`
+
+Enable a node legend. When set, a legend box is rendered showing one color-coded entry per node using the node labels and colors.
+
+## Data Structure
+
+```rust
+pub struct ChordPlot {
+    /// N×N flow matrix. matrix[i][j] is the flow from node i to node j.
+    pub matrix: Vec<Vec<f64>>,
+    /// Node labels — one per row/column of the matrix.
+    pub labels: Vec<String>,
+    /// Per-node fill colors. When empty, category10 palette is used.
+    pub colors: Vec<String>,
+    /// Gap between adjacent arc segments in degrees (default 2.0).
+    pub gap_degrees: f64,
+    /// Controls arc thickness: inner_r = outer_r * pad_fraction (default 0.85).
+    pub pad_fraction: f64,
+    /// Ribbon fill opacity — 0.0 (transparent) to 1.0 (opaque) (default 0.7).
+    pub ribbon_opacity: f64,
+    /// When Some, a legend box is rendered.
+    pub legend_label: Option<String>,
+}
+```
+
+## Tips
+
+- **Matrix preparation**: Set diagonal entries (`matrix[i][i]`) to `0.0` to avoid self-loops
+- **Color choice**: Use distinct colors from a qualitative palette for better node differentiation
+- **Dense diagrams**: Reduce opacity to improve readability when ribbons overlap heavily
+- **Node ordering**: Arrange nodes to minimize ribbon crossings; place strongly connected nodes adjacent
+- **Scale**: Works best with 3-20 nodes; beyond 20, consider alternative visualizations
+- **Flow magnitude**: Ribbon widths are proportional to absolute values; normalize if needed
+
+## Related Plots
+
+- [SankeyPlot](/plot-types/network/sankey) — For multi-stage directed flows with explicit columns
+- [Network graphs](/plot-types/network/graph) — For sparse networks with explicit node positioning

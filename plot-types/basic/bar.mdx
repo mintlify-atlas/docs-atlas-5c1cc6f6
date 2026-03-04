@@ -1,0 +1,239 @@
+---
+title: Bar Chart
+description: Simple, grouped, and stacked bar charts for categorical data comparison
+---
+
+Bar charts visualize categorical data using rectangular bars where height represents the data value. Kuva's `BarPlot` supports three modes: simple (one bar per category), grouped (multiple side-by-side bars), and stacked (bars stacked vertically).
+
+## When to Use
+
+- Comparing quantities across categories
+- Showing counts or frequencies
+- Displaying multiple series per category (grouped mode)
+- Showing part-to-whole relationships over categories (stacked mode)
+- Time series with discrete categories (quarters, years)
+
+## Basic Example
+
+```rust
+use kuva::plot::BarPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = BarPlot::new()
+    .with_bars(vec![
+        ("Apples",  42.0),
+        ("Bananas", 58.0),
+        ("Cherries", 31.0),
+    ])
+    .with_color("steelblue");
+
+let plots = vec![Plot::Bar(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Fruit Counts")
+    .with_y_label("Count");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("bar.svg", svg).unwrap();
+```
+
+## Three Modes
+
+### Simple Mode
+
+One bar per category with uniform color:
+
+```rust
+let plot = BarPlot::new()
+    .with_bars(vec![
+        ("Q1", 42.0),
+        ("Q2", 58.0),
+        ("Q3", 51.0),
+        ("Q4", 67.0),
+    ])
+    .with_color("steelblue");
+```
+
+### Grouped Mode
+
+Multiple bars side-by-side per category:
+
+```rust
+let plot = BarPlot::new()
+    .with_group("Q1", vec![(18.0, "steelblue"), (12.0, "crimson"), (9.0,  "seagreen")])
+    .with_group("Q2", vec![(22.0, "steelblue"), (17.0, "crimson"), (14.0, "seagreen")])
+    .with_group("Q3", vec![(19.0, "steelblue"), (21.0, "crimson"), (11.0, "seagreen")])
+    .with_legend(vec!["Product A", "Product B", "Product C"]);
+```
+
+### Stacked Mode
+
+Bars stacked vertically within each category:
+
+```rust
+let plot = BarPlot::new()
+    .with_group("Q1", vec![(18.0, "steelblue"), (12.0, "crimson"), (9.0,  "seagreen")])
+    .with_group("Q2", vec![(22.0, "steelblue"), (17.0, "crimson"), (14.0, "seagreen")])
+    .with_group("Q3", vec![(19.0, "steelblue"), (21.0, "crimson"), (11.0, "seagreen")])
+    .with_legend(vec!["Product A", "Product B", "Product C"])
+    .with_stacked();
+```
+
+## Key Methods
+
+### Simple Mode Methods
+
+<ParamField path="with_bar" type="method">
+  Add a single bar:
+  
+  ```rust
+  .with_bar("Category A", 42.0)
+  .with_bar("Category B", 58.0)
+  ```
+</ParamField>
+
+<ParamField path="with_bars" type="method">
+  Add multiple bars at once:
+  
+  ```rust
+  .with_bars(vec![
+      ("A", 42.0),
+      ("B", 58.0),
+      ("C", 31.0),
+  ])
+  ```
+</ParamField>
+
+<ParamField path="with_color" type="method">
+  Set uniform color for all bars (in simple mode):
+  
+  ```rust
+  .with_color("steelblue")
+  ```
+  
+  Call this after adding bars with `.with_bar()` or `.with_bars()`.
+</ParamField>
+
+### Grouped/Stacked Mode Methods
+
+<ParamField path="with_group" type="method">
+  Add a group of bars for one category:
+  
+  ```rust
+  .with_group("Q1", vec![
+      (10.0, "steelblue"),  // value, color
+      (7.0, "crimson"),
+      (5.0, "seagreen"),
+  ])
+  ```
+  
+  Each `(value, color)` pair represents one series. Call this once per x-axis category.
+</ParamField>
+
+<ParamField path="with_legend" type="method">
+  Set legend labels for each series:
+  
+  ```rust
+  .with_legend(vec!["Series A", "Series B", "Series C"])
+  ```
+  
+  The label count must match the number of bars per group.
+</ParamField>
+
+<ParamField path="with_stacked" type="method">
+  Enable stacked mode (vertical stacking instead of side-by-side):
+  
+  ```rust
+  .with_stacked()
+  ```
+</ParamField>
+
+### Sizing
+
+<ParamField path="with_width" type="method">
+  Set bar width as a fraction of the category slot (default `0.8`):
+  
+  ```rust
+  .with_width(0.6)  // Narrower bars
+  .with_width(1.0)  // Bars touch each other
+  ```
+  
+  Values between `0.0` and `1.0`.
+</ParamField>
+
+## Examples
+
+### Simple Bar Chart
+
+```rust
+let plot = BarPlot::new()
+    .with_bars(vec![
+        ("Apples",     42.0),
+        ("Bananas",    58.0),
+        ("Cherries",   31.0),
+        ("Dates",      47.0),
+        ("Elderberry", 25.0),
+    ])
+    .with_color("steelblue");
+```
+
+### Grouped Bar Chart
+
+```rust
+let plot = BarPlot::new()
+    .with_group("Q1", vec![(18.0, "steelblue"), (12.0, "crimson"), (9.0,  "seagreen")])
+    .with_group("Q2", vec![(22.0, "steelblue"), (17.0, "crimson"), (14.0, "seagreen")])
+    .with_group("Q3", vec![(19.0, "steelblue"), (21.0, "crimson"), (11.0, "seagreen")])
+    .with_group("Q4", vec![(25.0, "steelblue"), (15.0, "crimson"), (18.0, "seagreen")])
+    .with_legend(vec!["Product A", "Product B", "Product C"]);
+```
+
+### Stacked Bar Chart
+
+```rust
+let plot = BarPlot::new()
+    .with_group("Q1", vec![(18.0, "steelblue"), (12.0, "crimson"), (9.0,  "seagreen")])
+    .with_group("Q2", vec![(22.0, "steelblue"), (17.0, "crimson"), (14.0, "seagreen")])
+    .with_group("Q3", vec![(19.0, "steelblue"), (21.0, "crimson"), (11.0, "seagreen")])
+    .with_group("Q4", vec![(25.0, "steelblue"), (15.0, "crimson"), (18.0, "seagreen")])
+    .with_legend(vec!["Product A", "Product B", "Product C"])
+    .with_stacked();
+```
+
+### Custom Bar Width
+
+```rust
+let plot = BarPlot::new()
+    .with_bars(vec![("A", 10.0), ("B", 15.0), ("C", 12.0)])
+    .with_color("steelblue")
+    .with_width(0.5);  // Narrower bars with more whitespace
+```
+
+## Tips
+
+<Tip>
+  **Choosing mode**: Use simple for single-series data, grouped to compare series side-by-side, and stacked to show composition and totals.
+</Tip>
+
+<Tip>
+  **Color consistency**: In grouped/stacked mode, use the same colors across all groups so each series has a consistent color throughout.
+</Tip>
+
+<Tip>
+  **Many categories**: If you have many categories, consider horizontal bars (not yet supported) or rotate to a different plot type like a dot plot.
+</Tip>
+
+<Warning>
+  In grouped/stacked mode, every group must have the same number of bars. The legend labels must match this count.
+</Warning>
+
+<Note>
+  Negative values are supported and will extend downward from the x-axis.
+</Note>
+
+## Source Location
+
+Implementation: `src/plot/bar.rs`  
+Examples: `examples/bar.rs`

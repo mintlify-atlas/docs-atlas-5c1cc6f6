@@ -1,0 +1,401 @@
+---
+title: CLI Usage
+description: Using the kuva command-line tool, commands, flags, and data formats
+---
+
+The Kuva CLI provides a command-line interface for creating plots from tabular data without writing code.
+
+## Installation
+
+Build with the `cli` feature:
+
+```bash
+cargo install kuva --features cli
+
+# Or with additional backends
+cargo install kuva --features cli,png,pdf
+```
+
+## Basic Usage
+
+The CLI follows a subcommand structure:
+
+```bash
+kuva <PLOT_TYPE> [OPTIONS] [INPUT_FILE]
+```
+
+### Quick Example
+
+```bash
+# Create a scatter plot from CSV data
+kuva scatter data.csv --x 0 --y 1 --color steelblue -o scatter.svg
+
+# Pipe data from stdin
+cat data.tsv | kuva line --x time --y value --title "Time Series"
+```
+
+## Available Plot Types
+
+Kuva supports 24 plot types via subcommands:
+
+<Tabs>
+  <Tab title="Core plots">
+    - `scatter` - Scatter plot from two numeric columns
+    - `line` - Line plot connecting data points
+    - `bar` - Bar chart for categorical data
+    - `histogram` - Distribution of a single variable
+    - `box` - Box-and-whisker plots
+    - `violin` - Violin plots (distribution shape)
+    - `pie` - Pie chart for proportions
+  </Tab>
+  <Tab title="Statistical">
+    - `hist2d` - 2D histogram heatmap
+    - `contour` - Contour plot from gridded data
+    - `heatmap` - Color-coded matrix
+    - `strip` - Strip plot (jittered points)
+    - `dot` - Cleveland dot plot
+  </Tab>
+  <Tab title="Specialized">
+    - `volcano` - Volcano plot (fold change vs. p-value)
+    - `manhattan` - Manhattan plot (genomic associations)
+    - `candlestick` - Financial OHLC charts
+    - `waterfall` - Waterfall chart (cumulative changes)
+    - `stacked-area` - Stacked area plot
+    - `upset` - UpSet plot (set intersections)
+    - `chord` - Chord diagram (relationships)
+    - `sankey` - Sankey diagram (flows)
+    - `phylo` - Phylogenetic tree
+    - `synteny` - Synteny plot (genomic alignments)
+  </Tab>
+</Tabs>
+
+## Input Formats
+
+### Data Files
+
+Kuva reads tabular data from:
+- **TSV** (tab-separated values)
+- **CSV** (comma-separated values)
+- **stdin** (use `-` or omit the filename)
+
+```bash
+# From file
+kuva scatter data.csv --x 0 --y 1
+
+# From stdin
+cat data.tsv | kuva line --x time --y value
+kuva histogram - < values.txt
+```
+
+### Column Selection
+
+Columns can be specified by:
+- **0-based index**: `--x 0 --y 1`
+- **Header name**: `--x temperature --y pressure`
+
+```bash
+# By index
+kuva scatter data.csv --x 0 --y 1
+
+# By name (requires header row)
+kuva scatter data.csv --x "Time (s)" --y "Force (N)"
+```
+
+### Header Detection
+
+Kuva automatically detects headers. If the first row contains non-numeric values, it's treated as a header.
+
+```bash
+# Force treating first row as data
+kuva scatter data.csv --x 0 --y 1 --no-header
+```
+
+### Delimiter Detection
+
+Delimiters are auto-detected from file extensions:
+- `.csv` → comma
+- `.tsv`, `.txt` → tab
+
+Override with `-d`:
+
+```bash
+# Force semicolon delimiter
+kuva scatter data.csv --x 0 --y 1 -d ';'
+```
+
+## Common Options
+
+These options work across all plot types.
+
+### Output Control
+
+```bash
+# Write to file (format inferred from extension)
+kuva scatter data.csv --x 0 --y 1 -o plot.svg
+kuva scatter data.csv --x 0 --y 1 -o plot.png  # requires 'png' feature
+kuva scatter data.csv --x 0 --y 1 -o plot.pdf  # requires 'pdf' feature
+
+# SVG to stdout (default)
+kuva scatter data.csv --x 0 --y 1 > plot.svg
+```
+
+### Dimensions & Title
+
+```bash
+kuva scatter data.csv \
+  --x 0 --y 1 \
+  --title "My Plot" \
+  --width 1000 \
+  --height 600
+```
+
+### Axes Labels
+
+```bash
+kuva scatter data.csv \
+  --x 0 --y 1 \
+  --x-label "Temperature (°C)" \
+  --y-label "Pressure (kPa)"
+```
+
+### Themes
+
+Four built-in themes:
+
+<CodeGroup>
+```bash Light (default)
+kuva scatter data.csv --x 0 --y 1 --theme light
+```
+
+```bash Dark
+kuva scatter data.csv --x 0 --y 1 --theme dark
+```
+
+```bash Solarized
+kuva scatter data.csv --x 0 --y 1 --theme solarized
+```
+
+```bash Minimal
+kuva scatter data.csv --x 0 --y 1 --theme minimal
+```
+</CodeGroup>
+
+### Color Palettes
+
+Choose from 9 named palettes:
+
+```bash
+# Category10 (default)
+kuva scatter data.csv --x 0 --y 1 --color-by group --palette category10
+
+# Colorblind-safe palettes
+kuva scatter data.csv --x 0 --y 1 --color-by group --palette wong
+kuva scatter data.csv --x 0 --y 1 --color-by group --palette okabe-ito
+kuva scatter data.csv --x 0 --y 1 --color-by group --palette tol-bright
+
+# Other palettes
+kuva scatter data.csv --x 0 --y 1 --color-by group --palette pastel
+kuva scatter data.csv --x 0 --y 1 --color-by group --palette bold
+kuva scatter data.csv --x 0 --y 1 --color-by group --palette ibm
+```
+
+### Color Vision Deficiency (CVD) Palettes
+
+```bash
+# Deuteranopia (most common, ~6% males)
+kuva scatter data.csv --x 0 --y 1 --color-by group --cvd-palette deuteranopia
+
+# Protanopia
+kuva scatter data.csv --x 0 --y 1 --color-by group --cvd-palette protanopia
+
+# Tritanopia
+kuva scatter data.csv --x 0 --y 1 --color-by group --cvd-palette tritanopia
+```
+
+### Log Scale
+
+```bash
+# Log X axis
+kuva scatter data.csv --x 0 --y 1 --log-x
+
+# Log Y axis
+kuva scatter data.csv --x 0 --y 1 --log-y
+
+# Both axes
+kuva scatter data.csv --x 0 --y 1 --log-x --log-y
+```
+
+### Grid Control
+
+```bash
+# Disable background grid
+kuva scatter data.csv --x 0 --y 1 --no-grid
+```
+
+### Background Color
+
+```bash
+# Override theme background
+kuva scatter data.csv --x 0 --y 1 --background "#f0f0f0"
+```
+
+## Plot-Specific Examples
+
+### Scatter Plot
+
+```bash
+# Basic scatter
+kuva scatter data.csv --x 0 --y 1 --color steelblue --size 4
+
+# With linear trend line
+kuva scatter data.csv --x 0 --y 1 --trend --equation --correlation
+
+# Color by group
+kuva scatter data.csv --x 0 --y 1 --color-by species --legend
+```
+
+See [src/bin/kuva/scatter.rs:1](https://github.com/Psy-Fer/kuva) for implementation.
+
+### Line Plot
+
+```bash
+# Basic line
+kuva line timeseries.csv --x time --y value --color crimson
+
+# Color by group with legend
+kuva line data.csv --x 0 --y 1 --color-by treatment --legend
+```
+
+### Bar Chart
+
+```bash
+# Vertical bars
+kuva bar data.csv --category 0 --value 1 --color steelblue
+
+# Horizontal bars
+kuva bar data.csv --category 0 --value 1 --horizontal
+
+# Grouped bars by category
+kuva bar data.csv --category 0 --value 1 --group-by condition
+```
+
+### Histogram
+
+```bash
+# Auto-binning (default: 30 bins)
+kuva histogram data.csv --x 0 --color steelblue
+
+# Custom bin count
+kuva histogram data.csv --x 0 --bins 50
+
+# Density plot instead of counts
+kuva histogram data.csv --x 0 --density
+```
+
+### Box Plot
+
+```bash
+# Single distribution
+kuva box data.csv --value 0 --color steelblue
+
+# Multiple groups
+kuva box data.csv --value 0 --group-by treatment
+```
+
+### Volcano Plot
+
+```bash
+# Fold change vs. p-value
+kuva volcano results.csv \
+  --log2fc 1 \
+  --pvalue 2 \
+  --fc-threshold 1.5 \
+  --pval-threshold 0.05
+```
+
+### Manhattan Plot
+
+```bash
+# Genomic associations
+kuva manhattan gwas.csv \
+  --chr chromosome \
+  --pos position \
+  --pvalue pval \
+  --build hg38
+```
+
+## Terminal Output
+
+Render plots directly in the terminal using Unicode characters:
+
+```bash
+# Render to terminal
+kuva scatter data.csv --x 0 --y 1 --terminal
+
+# Specify terminal size
+kuva scatter data.csv --x 0 --y 1 --terminal --term-width 100 --term-height 30
+
+# Light terminal background
+kuva scatter data.csv --x 0 --y 1 --terminal --term-bg light
+```
+
+The terminal backend uses the `$COLUMNS` and `$LINES` environment variables by default.
+
+## Pipeline Examples
+
+### Preprocessing with awk
+
+```bash
+# Extract columns 2 and 5, plot as scatter
+awk '{print $2"\t"$5}' raw_data.txt | kuva scatter - --x 0 --y 1
+```
+
+### Combining with other tools
+
+```bash
+# Generate data with R, plot with kuva
+Rscript generate_data.R | kuva histogram - --x 0 --bins 40 --color navy
+
+# Filter with grep, count with uniq, plot as bar
+grep "pattern" logfile.txt | cut -f2 | sort | uniq -c | \
+  awk '{print $2"\t"$1}' | kuva bar - --category 0 --value 1
+```
+
+### Batch Processing
+
+```bash
+# Generate plots for multiple files
+for file in data/*.csv; do
+  kuva scatter "$file" --x 0 --y 1 --title "$file" -o "plots/$(basename "$file" .csv).svg"
+done
+```
+
+## Getting Help
+
+```bash
+# Main help
+kuva --help
+
+# Subcommand help
+kuva scatter --help
+kuva histogram --help
+```
+
+## Man Page
+
+Generate and view the manual page:
+
+```bash
+# Generate man page
+kuva man > kuva.1
+
+# View with man
+man ./kuva.1
+```
+
+See [src/bin/kuva/main.rs:64](https://github.com/Psy-Fer/kuva) for implementation.
+
+## Next Steps
+
+- [Library Usage](/guides/library-usage) - Using Kuva programmatically in Rust
+- [Styling & Customization](/guides/styling-customization) - Advanced visual customization

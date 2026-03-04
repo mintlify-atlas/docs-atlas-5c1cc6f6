@@ -1,0 +1,301 @@
+---
+title: CandlestickPlot
+description: OHLC (Open-High-Low-Close) chart for financial time series with optional volume panel
+---
+
+A candlestick chart encodes four values per period — **open**, **high**, **low**, **close** — as a candle with a body and wicks. Bullish candles (close > open) are green; bearish candles (close < open) are red; doji candles (close == open) are gray. An optional **volume panel** can be shown below the price chart.
+
+## When to Use
+
+- **Stock prices**: Display daily/weekly/monthly OHLC data
+- **Cryptocurrency**: Track volatile crypto markets
+- **Commodity prices**: Visualize oil, gold, or agricultural futures
+- **Trading signals**: Overlay indicators on candlestick charts
+- **Any OHLC data**: When four-value encoding is needed per time period
+
+## Basic Example
+
+```rust
+use kuva::plot::CandlestickPlot;
+use kuva::backend::svg::SvgBackend;
+use kuva::render::render::render_multiple;
+use kuva::render::layout::Layout;
+use kuva::render::plots::Plot;
+
+let plot = CandlestickPlot::new()
+    .with_candle("Mon", 100.0, 106.5,  99.2, 105.8)
+    .with_candle("Tue", 105.8, 108.0, 104.1, 104.5)
+    .with_candle("Wed", 104.5, 109.2, 104.0, 108.0)
+    .with_candle("Thu", 108.0, 111.5, 107.3, 110.9)
+    .with_candle("Fri", 110.9, 111.0, 107.8, 108.5)
+    .with_legend("ACME");
+
+let plots = vec![Plot::Candlestick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Weekly OHLC")
+    .with_x_label("Day")
+    .with_y_label("Price (USD)");
+
+let svg = SvgBackend.render_scene(&render_multiple(plots, layout));
+std::fs::write("candlestick.svg", svg).unwrap();
+```
+
+## Input Modes
+
+### Categorical Mode: `with_candle`
+
+Candles are placed at evenly spaced integer positions; labels shown as x-axis ticks.
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_candle("Mon", 100.0, 106.5,  99.2, 105.8)  // open, high, low, close
+    .with_candle("Tue", 105.8, 108.0, 104.1, 104.5);
+```
+
+Use for daily/weekly data with uniform spacing.
+
+### Numeric Mode: `with_candle_at`
+
+Each candle placed at an explicit `f64` x position on a continuous numeric x-axis.
+
+```rust
+let plot = CandlestickPlot::new()
+    // x = fractional year; candles spaced 0.25 apart
+    .with_candle_at(2023.00, "Q1", 110.0, 118.0, 108.0, 116.0)
+    .with_candle_at(2023.25, "Q2", 116.0, 122.0, 114.0, 121.0)
+    .with_candle_at(2023.50, "Q3", 121.0, 126.0, 118.5, 119.5)
+    .with_candle_width(0.15);
+```
+
+Useful for quarterly data or irregular spacing.
+
+## Key Methods
+
+### `with_candle(label, open, high, low, close)`
+
+Append a candle in categorical mode. Parameters accept any type implementing `Into<f64>`.
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_candle("Nov 01", 142.50, 146.20, 141.80, 145.30);
+```
+
+### `with_candle_at(x, label, open, high, low, close)`
+
+Append a candle at explicit x position in numeric mode.
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_candle_at(2023.00, "Q1'23", 110.0, 118.0, 110.0, 116.8);
+```
+
+Call `with_candle_width()` to set body width in data units (e.g. `0.15` for quarterly data).
+
+### Volume Panel
+
+#### `with_volume(volumes: impl IntoIterator<Item = T>)`
+
+Attach volume values to candles in insertion order.
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_candle("Mon", 100.0, 106.0, 99.0, 105.0)
+    .with_candle("Tue", 105.0, 108.0, 104.0, 104.5)
+    .with_volume([1_250_000.0, 980_000.0]);
+```
+
+Volume data is not rendered until `with_volume_panel()` is also called.
+
+#### `with_volume_panel()`
+
+Enable the volume bar panel below the price chart.
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_volume([1_250_000.0, 980_000.0])
+    .with_volume_panel();
+```
+
+Panel occupies bottom 22% of chart area by default.
+
+#### `with_volume_ratio(ratio: f64)`
+
+Set fraction of total chart height used by volume panel (default `0.22`).
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_volume_panel()
+    .with_volume_ratio(0.30);  // 30% for volume, 70% for price
+```
+
+### Styling
+
+#### `with_candle_width(width: f64)`
+
+Set candle body width as fraction of slot (categorical mode) or in data units (numeric mode). Default `0.7`.
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_candle_width(0.6);
+```
+
+#### `with_wick_width(width: f64)`
+
+Set wick stroke width in pixels (default `1.5`).
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_wick_width(2.0);
+```
+
+#### `with_color_up(color: impl Into<String>)`
+
+Set color for bullish candles where close > open (default `"rgb(68,170,68)"` — green).
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_color_up("#00c896");
+```
+
+#### `with_color_down(color: impl Into<String>)`
+
+Set color for bearish candles where close < open (default `"rgb(204,68,68)"` — red).
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_color_down("#ff4560");
+```
+
+#### `with_color_doji(color: impl Into<String>)`
+
+Set color for doji candles where close == open (default `"#888888"` — gray).
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_color_doji("#aaaaaa");
+```
+
+### `with_legend(label: impl Into<String>)`
+
+Add legend label; causes legend box to appear inside plot area.
+
+```rust
+let plot = CandlestickPlot::new()
+    .with_legend("ACME Corp");
+```
+
+## Examples
+
+### Daily OHLC — 20 Trading Days
+
+```rust
+let data: &[(&str, f64, f64, f64, f64)] = &[
+    ("Nov 01", 142.50, 146.20, 141.80, 145.30),
+    ("Nov 02", 145.40, 147.80, 143.50, 144.10),
+    ("Nov 03", 144.10, 144.90, 142.20, 144.10), // doji
+    ("Nov 04", 143.80, 148.50, 143.20, 147.90),
+    ("Nov 05", 147.90, 150.20, 146.30, 149.80),
+    // ... 15 more days
+];
+
+let mut plot = CandlestickPlot::new();
+for &(label, open, high, low, close) in data {
+    plot = plot.with_candle(label, open, high, low, close);
+}
+
+let plots = vec![Plot::Candlestick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Daily OHLC — November")
+    .with_x_label("Date")
+    .with_y_label("Price (USD)")
+    .with_x_tick_rotate(-45.0);
+```
+
+Mix of bullish, bearish, and doji candles.
+
+### With Volume Panel
+
+```rust
+let data: &[(&str, f64, f64, f64, f64, f64)] = &[
+    ("Nov 01", 142.50, 146.20, 141.80, 145.30, 1_250_000.0),
+    ("Nov 02", 145.40, 147.80, 143.50, 144.10,   980_000.0),
+    ("Nov 03", 144.10, 144.90, 142.20, 144.10,   720_000.0),
+    // ... more days
+];
+
+let volumes: Vec<f64> = data.iter().map(|r| r.5).collect();
+
+let mut plot = CandlestickPlot::new();
+for &(label, open, high, low, close, _) in data {
+    plot = plot.with_candle(label, open, high, low, close);
+}
+plot = plot.with_volume(volumes).with_volume_panel();
+
+let plots = vec![Plot::Candlestick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Daily OHLC with Volume Panel")
+    .with_x_label("Date")
+    .with_y_label("Price (USD)")
+    .with_x_tick_rotate(-45.0);
+```
+
+Volume bars colored to match candle direction.
+
+### Custom Colors
+
+```rust
+let data: &[(&str, f64, f64, f64, f64)] = &[
+    ("Mon", 100.00, 105.80, 99.20, 104.50),
+    ("Tue", 104.50, 106.20, 103.10, 103.40),
+    ("Wed", 103.40, 107.50, 102.80, 106.90),
+    ("Thu", 106.90, 109.10, 106.30, 108.60),
+    ("Fri", 108.60, 109.00, 105.70, 108.60), // doji
+];
+
+let mut plot = CandlestickPlot::new()
+    .with_color_up("#00c896")
+    .with_color_down("#ff4560")
+    .with_color_doji("#aaaaaa");
+for &(label, open, high, low, close) in data {
+    plot = plot.with_candle(label, open, high, low, close);
+}
+
+let plots = vec![Plot::Candlestick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Custom Colors")
+    .with_x_label("Day")
+    .with_y_label("Price");
+```
+
+Custom up/down/doji colors.
+
+### Quarterly OHLC — Numeric x-axis
+
+```rust
+let data: &[(f64, &str, f64, f64, f64, f64)] = &[
+    (2022.00, "Q1'22",  98.0, 108.0,  95.0, 105.0),
+    (2022.25, "Q2'22", 105.0, 112.0, 101.0, 108.5),
+    (2022.50, "Q3'22", 108.5, 115.0, 107.0, 113.0),
+    (2022.75, "Q4'22", 113.0, 116.0, 109.0, 110.5),
+    // ... more quarters
+];
+
+let mut plot = CandlestickPlot::new();
+for &(x, label, open, high, low, close) in data {
+    plot = plot.with_candle_at(x, label, open, high, low, close);
+}
+plot = plot.with_candle_width(0.15);
+
+let plots = vec![Plot::Candlestick(plot)];
+let layout = Layout::auto_from_plots(&plots)
+    .with_title("Quarterly OHLC — Numeric x-axis")
+    .with_x_label("Quarter")
+    .with_y_label("Price");
+```
+
+Candles at explicit x positions; useful for uneven spacing.
+
+## See Also
+
+- [BarPlot](/plot-types/basic/bar) — For simple bar charts
+- [BoxPlot](/plot-types/statistical/boxplot) — For five-number summary distributions

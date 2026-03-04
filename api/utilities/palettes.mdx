@@ -1,0 +1,157 @@
+---
+title: Palette
+description: Color palettes for multi-element data visualization with modulo-wrapping
+---
+
+## Overview
+
+`Palette` provides named color sequences for data elements (scatter series, line series, bar groups, etc.). Palettes cycle infinitely using modulo indexing.
+
+Palettes are separate from `Theme`, which controls plot chrome.
+
+## Usage
+
+```rust
+use kuva::prelude::*;
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(Palette::wong());
+```
+
+## Colorblind-Safe Palettes
+
+### `Palette::wong()`
+
+Bang Wong's 8-color palette (Nature Methods 2011). Safe for all colorblind types.
+
+Colors: `#E69F00`, `#56B4E9`, `#009E73`, `#F0E442`, `#0072B2`, `#D55E00`, `#CC79A7`, `#000000`
+
+### `Palette::okabe_ito()`
+
+Alias for `wong()`. Same palette, widely known as Okabe-Ito.
+
+### `Palette::tol_bright()`
+
+Paul Tol qualitative bright - 7 colors.
+
+### `Palette::tol_muted()`
+
+Paul Tol qualitative muted - 10 colors.
+
+### `Palette::tol_light()`
+
+Paul Tol qualitative light - 9 colors.
+
+### `Palette::ibm()`
+
+IBM Design Language - 5 colors.
+
+### `Palette::deuteranopia()`
+
+Safe for deuteranopia (red-green, most common ~6% males). Alias for `wong()`.
+
+### `Palette::protanopia()`
+
+Safe for protanopia (red-green). Alias for `wong()`.
+
+### `Palette::tritanopia()`
+
+Safe for tritanopia (blue-yellow, rare ~0.01%).
+
+## General-Purpose Palettes
+
+### `Palette::category10()`
+
+Tableau 10 - 10 colors. Widely used in D3 and Matplotlib.
+
+### `Palette::pastel()`
+
+Soft pastel colors - 8 colors.
+
+### `Palette::bold()`
+
+Vibrant, saturated colors - 8 colors.
+
+## Custom Palettes
+
+### `Palette::custom`
+
+Create a custom palette from a vector of color strings.
+
+<ParamField path="name" type="&'static str" required>
+  Palette name for identification
+</ParamField>
+
+<ParamField path="colors" type="Vec<String>" required>
+  Vector of CSS color strings (hex or named)
+</ParamField>
+
+**Example:**
+
+```rust
+let palette = Palette::custom(
+    "brand",
+    vec!["#FF6B6B".into(), "#4ECDC4".into(), "#45B7D1".into()]
+);
+
+let layout = Layout::auto_from_plots(&plots)
+    .with_palette(palette);
+```
+
+## Methods
+
+### `len`
+
+Returns the number of colors in the palette.
+
+```rust
+let n = Palette::wong().len();  // 8
+```
+
+### `is_empty`
+
+Returns `true` if the palette has no colors.
+
+### `colors`
+
+Returns a slice of all color strings.
+
+```rust
+let colors = Palette::wong().colors();
+for color in colors {
+    println!("{}", color);
+}
+```
+
+### `iter`
+
+Returns an infinite cycling iterator over colors.
+
+```rust
+let mut colors = Palette::wong().iter();
+let c1 = colors.next();  // Some("#E69F00")
+let c2 = colors.next();  // Some("#56B4E9")
+// ... continues cycling through all 8 colors
+```
+
+## Indexing
+
+Palettes support modulo indexing:
+
+```rust
+let palette = Palette::wong();
+let color = &palette[0];   // First color
+let wrap = &palette[10];   // Wraps to palette[10 % 8] = palette[2]
+```
+
+## Accessibility
+
+For colorblind-safe visualizations:
+1. Use `wong()`, `tol_bright()`, or condition-specific palettes
+2. Combine color with other visual channels (shape, texture, size)
+3. Avoid red-green combinations for critical distinctions
+4. Add legends so colors are not the only information carrier
+
+## Source
+
+`src/render/palette.rs`

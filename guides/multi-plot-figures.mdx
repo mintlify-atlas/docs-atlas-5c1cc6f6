@@ -1,0 +1,490 @@
+---
+title: Multi-Plot Figures
+description: Creating multi-plot figures with the Figure API for complex layouts and panel arrangements
+---
+
+The `Figure` API allows you to create complex multi-panel layouts with multiple plots arranged in a grid, supporting merged cells, shared axes, and shared legends.
+
+## Basic Grid Layout
+
+### Creating a Simple Grid
+
+The simplest figure is a regular grid where each cell contains one plot:
+
+```rust
+use kuva::prelude::*;
+
+// Create two plots
+let scatter_data = vec![(1.0, 2.3), (2.1, 4.1), (3.4, 3.2)];
+let line_data = vec![(0.0, 0.0), (5.0, 4.0), (10.0, 8.0)];
+
+let scatter = ScatterPlot::new()
+    .with_data(scatter_data)
+    .with_color("steelblue");
+
+let line = LinePlot::new()
+    .with_data(line_data)
+    .with_color("crimson");
+
+// Organize into a 1×2 grid
+let all_plots = vec![
+    vec![scatter.into()],  // Cell 0
+    vec![line.into()],     // Cell 1
+];
+
+let layouts = vec![
+    Layout::auto_from_plots(&all_plots[0])
+        .with_title("Scatter")
+        .with_x_label("X")
+        .with_y_label("Y"),
+    Layout::auto_from_plots(&all_plots[1])
+        .with_title("Line")
+        .with_x_label("Time")
+        .with_y_label("Value"),
+];
+
+let scene = Figure::new(1, 2)  // 1 row, 2 columns
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_labels()  // Add panel labels (A, B, ...)
+    .render();
+
+let svg = SvgBackend.render_scene(&scene);
+```
+
+See [examples/figure.rs:44](https://github.com/Psy-Fer/kuva) for the complete example.
+
+## Panel Labels
+
+Add automatic panel labels (A, B, C, ...) to identify subplots:
+
+```rust
+let scene = Figure::new(2, 2)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_labels()  // Default: top-left, bold, size 16
+    .render();
+```
+
+### Customizing Panel Labels
+
+```rust
+use kuva::prelude::*;
+
+let label_config = LabelConfig::new()
+    .with_style(PanelLabelStyle::Uppercase)  // A, B, C (default)
+    // .with_style(PanelLabelStyle::Lowercase)  // a, b, c
+    // .with_style(PanelLabelStyle::Roman)      // I, II, III
+    .with_size(18)
+    .with_bold(true)
+    .with_position_offset(-10.0, 5.0);  // X, Y offset from top-left
+
+let scene = Figure::new(2, 2)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_label_config(label_config)
+    .render();
+```
+
+## Merged Panels
+
+Create irregular layouts by merging cells.
+
+### Wide Panel (Spanning Columns)
+
+```rust
+use kuva::prelude::*;
+
+// 2×3 grid with bottom row merged into one wide panel
+let all_plots = vec![
+    vec![plot1.into()],  // Top-left
+    vec![plot2.into()],  // Top-middle
+    vec![plot3.into()],  // Top-right
+    vec![plot4.into()],  // Wide bottom panel
+];
+
+let layouts = vec![
+    Layout::auto_from_plots(&all_plots[0]).with_title("Sample A"),
+    Layout::auto_from_plots(&all_plots[1]).with_title("Sample B"),
+    Layout::auto_from_plots(&all_plots[2]).with_title("Sample C"),
+    Layout::auto_from_plots(&all_plots[3])
+        .with_title("Combined")
+        .with_x_label("Time")
+        .with_y_label("Value"),
+];
+
+let scene = Figure::new(2, 3)
+    .with_structure(vec![
+        vec![0],       // Top-left
+        vec![1],       // Top-middle
+        vec![2],       // Top-right
+        vec![3, 4, 5], // Wide bottom: merges cells 3, 4, 5
+    ])
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_labels()
+    .render();
+```
+
+See [examples/figure.rs:77](https://github.com/Psy-Fer/kuva) for the merged panel example.
+
+### Tall Panel (Spanning Rows)
+
+```rust
+use kuva::prelude::*;
+
+// 2×2 grid with left column merged into one tall panel
+let all_plots = vec![
+    vec![tall_plot.into()],  // Tall left panel
+    vec![plot_tr.into()],    // Top-right
+    vec![plot_br.into()],    // Bottom-right
+];
+
+let layouts = vec![
+    Layout::auto_from_plots(&all_plots[0])
+        .with_title("Full Series")
+        .with_x_label("Time")
+        .with_y_label("Value"),
+    Layout::auto_from_plots(&all_plots[1]).with_title("Period 1"),
+    Layout::auto_from_plots(&all_plots[2]).with_title("Period 2"),
+];
+
+let scene = Figure::new(2, 2)
+    .with_structure(vec![
+        vec![0, 2],  // Tall left: merges cells 0 (top-left) and 2 (bottom-left)
+        vec![1],     // Top-right
+        vec![3],     // Bottom-right
+    ])
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_labels()
+    .render();
+```
+
+### Grid Cell Indexing
+
+Cells are numbered left-to-right, top-to-bottom:
+
+```text
+2×3 grid:
+  0  1  2
+  3  4  5
+
+2×2 grid:
+  0  1
+  2  3
+```
+
+See [examples/figure.rs:120](https://github.com/Psy-Fer/kuva) for the tall panel example.
+
+## Shared Axes
+
+Share axis scales across rows or columns for easier comparison.
+
+### Shared Y Axis Per Row
+
+```rust
+use kuva::prelude::*;
+
+// 2×2 grid: share Y within each row
+let scene = Figure::new(2, 2)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_shared_y(0)  // Share Y for row 0 (top row)
+    .with_shared_y(1)  // Share Y for row 1 (bottom row)
+    .render();
+```
+
+### Shared X Axis Per Column
+
+```rust
+let scene = Figure::new(2, 2)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_shared_x(0)  // Share X for column 0
+    .with_shared_x(1)  // Share X for column 1
+    .render();
+```
+
+### Custom Shared Axis Configuration
+
+```rust
+use kuva::prelude::*;
+
+let scene = Figure::new(2, 3)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_shared_axis(SharedAxis {
+        axis: 'y',
+        indices: vec![0, 1],  // Share Y for cells 0 and 1
+    })
+    .with_shared_axis(SharedAxis {
+        axis: 'x',
+        indices: vec![2, 5],  // Share X for cells 2 and 5
+    })
+    .render();
+```
+
+See [examples/figure.rs:156](https://github.com/Psy-Fer/kuva) for the shared axes example.
+
+## Shared Legend
+
+Collect legend entries from all panels into a single shared legend:
+
+```rust
+use kuva::prelude::*;
+
+let ctrl_data = vec![(0.0, 1.0), (1.0, 2.0), (2.0, 3.0)];
+let trt_data = vec![(0.0, 1.5), (1.0, 3.0), (2.0, 4.5)];
+
+// Each panel has the same two series
+let panel1 = vec![
+    ScatterPlot::new()
+        .with_data(ctrl_data.clone())
+        .with_color("steelblue")
+        .with_legend("Control")
+        .into(),
+    ScatterPlot::new()
+        .with_data(trt_data.clone())
+        .with_color("crimson")
+        .with_legend("Treatment")
+        .into(),
+];
+
+let panel2 = vec![
+    ScatterPlot::new()
+        .with_data(ctrl_data.clone())
+        .with_color("steelblue")
+        .with_legend("Control")
+        .into(),
+    ScatterPlot::new()
+        .with_data(trt_data.clone())
+        .with_color("crimson")
+        .with_legend("Treatment")
+        .into(),
+];
+
+let all_plots = vec![panel1, panel2];
+
+let layouts = vec![
+    Layout::auto_from_plots(&all_plots[0])
+        .with_title("Experiment 1")
+        .with_x_label("Time")
+        .with_y_label("Response"),
+    Layout::auto_from_plots(&all_plots[1])
+        .with_title("Experiment 2")
+        .with_x_label("Time"),
+];
+
+let scene = Figure::new(1, 2)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_shared_legend()  // Collect unique legend entries
+    .render();
+```
+
+The shared legend:
+- Collects all unique legend labels across panels
+- Places the legend in the top-right corner of the figure
+- Removes individual panel legends to avoid duplication
+
+See [examples/figure.rs:221](https://github.com/Psy-Fer/kuva) for the shared legend example.
+
+### Custom Legend Position
+
+```rust
+let scene = Figure::new(1, 2)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_shared_legend()
+    .with_legend_position(FigureLegendPosition::BottomRight)
+    // .with_legend_position(FigureLegendPosition::TopRight)     // Default
+    // .with_legend_position(FigureLegendPosition::TopLeft)
+    // .with_legend_position(FigureLegendPosition::BottomLeft)
+    .render();
+```
+
+## Figure Sizing
+
+### Cell Size (Default)
+
+Set the size of each individual cell:
+
+```rust
+let scene = Figure::new(2, 3)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_cell_size(400.0, 300.0)  // Each cell: 400×300 px
+    .render();
+```
+
+The total figure size is calculated as:
+- Width: `cell_width × columns + margins`
+- Height: `cell_height × rows + margins`
+
+### Fixed Figure Size
+
+Set the total figure dimensions and let cells auto-size:
+
+```rust
+let scene = Figure::new(2, 3)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_title("Fixed 900 × 560 figure — cells auto-sized")
+    .with_figure_size(900.0, 560.0)  // Total figure: 900×560 px
+    .render();
+```
+
+See [examples/figure.rs:190](https://github.com/Psy-Fer/kuva) for the figure sizing example.
+
+## Figure Title
+
+Add a title above the entire figure:
+
+```rust
+let scene = Figure::new(2, 2)
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_title("Experimental Results")
+    .with_title_size(24)
+    .render();
+```
+
+## Complete Example
+
+Here's a comprehensive example combining multiple features:
+
+```rust
+use kuva::prelude::*;
+use kuva::backend::svg::SvgBackend;
+
+// Generate sample data for three groups
+let groups = vec![
+    ("Control", vec![(1.0, 2.0), (2.0, 4.0), (3.0, 5.0)], "steelblue"),
+    ("Treatment A", vec![(1.0, 3.0), (2.0, 5.5), (3.0, 7.0)], "crimson"),
+    ("Treatment B", vec![(1.0, 2.5), (2.0, 4.5), (3.0, 6.5)], "seagreen"),
+];
+
+// Create a plot for each group
+let individual_panels: Vec<Vec<Plot>> = groups
+    .iter()
+    .map(|(name, data, color)| {
+        vec![ScatterPlot::new()
+            .with_data(data.clone())
+            .with_color(color)
+            .with_size(5.0)
+            .with_legend(name)
+            .into()]
+    })
+    .collect();
+
+// Create a combined plot with all groups
+let combined_panel: Vec<Plot> = groups
+    .iter()
+    .map(|(name, data, color)| {
+        ScatterPlot::new()
+            .with_data(data.clone())
+            .with_color(color)
+            .with_size(5.0)
+            .with_legend(name)
+            .into()
+    })
+    .collect();
+
+// Combine all panels
+let mut all_plots = individual_panels;
+all_plots.push(combined_panel);
+
+// Create layouts for each panel
+let mut layouts: Vec<Layout> = all_plots[..3]
+    .iter()
+    .zip(groups.iter())
+    .map(|(cell, (name, _, _))| {
+        Layout::auto_from_plots(cell)
+            .with_title(*name)
+            .with_y_label("Response")
+    })
+    .collect();
+
+layouts.push(
+    Layout::auto_from_plots(&all_plots[3])
+        .with_title("All Groups")
+        .with_x_label("Dose")
+        .with_y_label("Response"),
+);
+
+// Create a 2×3 figure with the bottom row merged
+let scene = Figure::new(2, 3)
+    .with_structure(vec![
+        vec![0], vec![1], vec![2],       // Top row: 3 individual panels
+        vec![3, 4, 5],                   // Bottom row: 1 wide merged panel
+    ])
+    .with_plots(all_plots)
+    .with_layouts(layouts)
+    .with_title("Dose-Response Analysis")
+    .with_title_size(20)
+    .with_labels()
+    .with_cell_size(350.0, 280.0)
+    .with_theme(Theme::light())
+    .render();
+
+let svg = SvgBackend.render_scene(&scene);
+std::fs::write("figure.svg", svg)?;
+```
+
+## Figure API Reference
+
+Key methods on `Figure`:
+
+| Method | Description |
+|--------|-------------|
+| `new(rows, cols)` | Create a new figure with a grid |
+| `with_plots(Vec<Vec<Plot>>)` | Set the plots for each panel |
+| `with_layouts(Vec<Layout>)` | Set the layout for each panel |
+| `with_structure(Vec<Vec<usize>>)` | Define merged cells (default: regular grid) |
+| `with_labels()` | Add panel labels (A, B, C, ...) |
+| `with_label_config(LabelConfig)` | Customize panel labels |
+| `with_title(String)` | Add a figure title |
+| `with_title_size(u32)` | Set title font size |
+| `with_cell_size(width, height)` | Set individual cell dimensions |
+| `with_figure_size(width, height)` | Set total figure dimensions |
+| `with_shared_x(row)` | Share X axis for a row |
+| `with_shared_y(col)` | Share Y axis for a column |
+| `with_shared_axis(SharedAxis)` | Custom shared axis configuration |
+| `with_shared_legend()` | Collect legends into one shared legend |
+| `with_legend_position(pos)` | Position the shared legend |
+| `with_theme(Theme)` | Apply a theme to all panels |
+| `render()` | Render the figure to a Scene |
+
+See [src/render/figure.rs:1](https://github.com/Psy-Fer/kuva) for the complete implementation.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use consistent color schemes across panels">
+    When showing the same groups in multiple panels, use the same colors for each group throughout the figure.
+  </Accordion>
+
+  <Accordion title="Share axes when comparing across panels">
+    Use `with_shared_y()` or `with_shared_x()` to make visual comparisons easier.
+  </Accordion>
+
+  <Accordion title="Add panel labels for clarity">
+    Always use `.with_labels()` so you can reference panels unambiguously (e.g., "Panel B shows...").
+  </Accordion>
+
+  <Accordion title="Use a shared legend when possible">
+    Reduce clutter by using `.with_shared_legend()` instead of repeating the same legend in every panel.
+  </Accordion>
+
+  <Accordion title="Keep panel sizes reasonable">
+    - Aim for 300-500 pixels per cell for most use cases
+    - Make panels larger (500-700 px) for detailed plots
+    - Make panels smaller (200-300 px) for many-panel overviews
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- [Annotations](/guides/annotations) - Adding reference lines, shaded regions, and text
+- [Styling & Customization](/guides/styling-customization) - Themes, colors, and visual styles
