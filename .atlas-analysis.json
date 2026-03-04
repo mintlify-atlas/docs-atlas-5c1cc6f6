@@ -1,0 +1,208 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Kuva",
+  "projectDescription": "A scientific plotting library in Rust with 25 plot types, SVG/PNG/PDF output, and CLI capabilities for bioinformatics and data visualization.",
+  "theme": "sequoia",
+  "primaryColor": "#2563eb",
+  "lightColor": "#60a5fa",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/plots",
+              "concepts/layouts",
+              "concepts/themes-palettes",
+              "concepts/backends"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/library-usage",
+              "guides/cli-usage",
+              "guides/styling-customization",
+              "guides/multi-plot-figures",
+              "guides/annotations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Plot Types",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "plot-types/overview"
+            ]
+          },
+          {
+            "group": "Basic Plots",
+            "pages": [
+              "plot-types/basic/scatter",
+              "plot-types/basic/line",
+              "plot-types/basic/bar",
+              "plot-types/basic/histogram",
+              "plot-types/basic/box",
+              "plot-types/basic/violin",
+              "plot-types/basic/pie",
+              "plot-types/basic/strip"
+            ]
+          },
+          {
+            "group": "Statistical Plots",
+            "pages": [
+              "plot-types/statistical/histogram2d",
+              "plot-types/statistical/heatmap",
+              "plot-types/statistical/contour",
+              "plot-types/statistical/band",
+              "plot-types/statistical/waterfall",
+              "plot-types/statistical/stacked-area",
+              "plot-types/statistical/candlestick"
+            ]
+          },
+          {
+            "group": "Scientific Plots",
+            "pages": [
+              "plot-types/scientific/volcano",
+              "plot-types/scientific/manhattan",
+              "plot-types/scientific/dotplot",
+              "plot-types/scientific/upset",
+              "plot-types/scientific/brick"
+            ]
+          },
+          {
+            "group": "Network & Flow",
+            "pages": [
+              "plot-types/network/chord",
+              "plot-types/network/sankey",
+              "plot-types/network/phylo",
+              "plot-types/network/synteny"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/render-functions",
+              "api/layout",
+              "api/figure"
+            ]
+          },
+          {
+            "group": "Plot APIs",
+            "pages": [
+              "api/plots/scatter",
+              "api/plots/line",
+              "api/plots/bar",
+              "api/plots/histogram",
+              "api/plots/box",
+              "api/plots/violin",
+              "api/plots/pie",
+              "api/plots/strip",
+              "api/plots/histogram2d",
+              "api/plots/heatmap",
+              "api/plots/contour",
+              "api/plots/band",
+              "api/plots/waterfall",
+              "api/plots/stacked-area",
+              "api/plots/candlestick",
+              "api/plots/volcano",
+              "api/plots/manhattan",
+              "api/plots/dotplot",
+              "api/plots/upset",
+              "api/plots/brick",
+              "api/plots/chord",
+              "api/plots/sankey",
+              "api/plots/phylo",
+              "api/plots/synteny",
+              "api/plots/series"
+            ]
+          },
+          {
+            "group": "Backends",
+            "pages": [
+              "api/backends/svg",
+              "api/backends/png",
+              "api/backends/pdf",
+              "api/backends/terminal"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utilities/themes",
+              "api/utilities/palettes",
+              "api/utilities/annotations",
+              "api/utilities/datetime"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "25 scientific plot types including scatter, line, volcano, manhattan, phylo trees, sankey, and more",
+    "Multiple output formats: SVG, PNG, PDF, and terminal rendering with Unicode braille",
+    "Comprehensive styling system with themes, color palettes, and full customization",
+    "Multi-plot figure layouts with shared axes and merged cells",
+    "Built-in CLI for command-line plotting from TSV/CSV files",
+    "Specialized bioinformatics plots: volcano, manhattan, phylo trees, synteny, brick plots"
+  ],
+  "publicApiSurface": [
+    "render_to_svg",
+    "render_to_png",
+    "render_to_pdf",
+    "ScatterPlot",
+    "LinePlot",
+    "BarPlot",
+    "Histogram",
+    "Histogram2D",
+    "BoxPlot",
+    "ViolinPlot",
+    "PiePlot",
+    "SeriesPlot",
+    "Heatmap",
+    "BrickPlot",
+    "BandPlot",
+    "WaterfallPlot",
+    "StripPlot",
+    "VolcanoPlot",
+    "ManhattanPlot",
+    "DotPlot",
+    "UpSetPlot",
+    "StackedAreaPlot",
+    "CandlestickPlot",
+    "ContourPlot",
+    "ChordPlot",
+    "SankeyPlot",
+    "PhyloTree",
+    "SyntenyPlot",
+    "Layout",
+    "Figure",
+    "Theme",
+    "Palette",
+    "SvgBackend",
+    "PngBackend",
+    "PdfBackend",
+    "TerminalBackend"
+  ]
+}
